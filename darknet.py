@@ -65,7 +65,7 @@ class Darknet(nn.Module):
         self.losses = []
         for model in self.models:
             if type(model) == RegionLoss:
-            self.losses.append(model)
+                self.losses.append(model)
 
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
