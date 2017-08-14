@@ -62,16 +62,13 @@ class Darknet(nn.Module):
         super(Darknet, self).__init__()
         self.blocks = parse_cfg(cfgfile)
         self.models = self.create_network(self.blocks) # merge conv, bn,leaky
-        self.loss = self.models[len(self.models)-1]
+        self.losses = []
+        for model in self.models:
+            if type(model) == RegionLoss:
+            self.losses.append(model)
 
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
-
-        if self.blocks[(len(self.blocks)-1)]['type'] == 'region':
-            self.anchors = self.loss.anchors
-            self.num_anchors = self.loss.num_anchors
-            self.anchor_step = self.loss.anchor_step
-            self.num_classes = self.loss.num_classes
 
         self.header = torch.IntTensor([0,0,0,0])
         self.seen = 0
@@ -80,6 +77,7 @@ class Darknet(nn.Module):
         ind = -2
         self.loss = None
         outputs = dict()
+        region_outputs = []
         for block in self.blocks:
             ind = ind + 1
             #if ind > 0:
@@ -114,6 +112,7 @@ class Darknet(nn.Module):
                     x = F.relu(x, inplace=True)
                 outputs[ind] = x
             elif block['type'] == 'region':
+                region_outputs.append(x)
                 continue
                 if self.loss:
                     self.loss = self.loss + self.models[ind](x)
@@ -124,7 +123,11 @@ class Darknet(nn.Module):
                 continue
             else:
                 print('unknown type %s' % (block['type']))
-        return x
+
+        if len(region_outputs) > 1:
+            return region_outputs
+        else:
+            return x
 
     def print_network(self):
         print_cfg(self.blocks)

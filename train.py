@@ -68,12 +68,13 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 model       = Darknet(cfgfile)
-region_loss = model.loss
+region_losses = model.losses
 
 model.load_weights(weightfile)
 model.print_network()
 
-region_loss.seen  = model.seen
+for region_loss in region_losses:
+    region_loss.seen  = model.seen
 processed_batches = model.seen/batch_size
 
 init_width        = model.width
@@ -158,10 +159,12 @@ def train(epoch):
         t4 = time.time()
         optimizer.zero_grad()
         t5 = time.time()
-        output = model(data)
+        outputs = [model(data)]
         t6 = time.time()
-        region_loss.seen = region_loss.seen + data.data.size(0)
-        loss = region_loss(output, target)
+        loss = Variable(torch.zeros(1).cuda())
+        for i in range(len(region_losses)):
+            region_losses[i].seen = region_losses[i].seen + data.data.size(0)
+            loss = loss + region_losses[i](outputs[i], target)
         t7 = time.time()
         loss.backward()
         t8 = time.time()
@@ -218,9 +221,15 @@ def test(epoch):
         if use_cuda:
             data = data.cuda()
         data = Variable(data, volatile=True)
-        output = model(data).data
-        all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors)
-        for i in range(output.size(0)):
+        outputs = model(data)
+        batch_num = data.size(0) 
+        all_boxes = [[]] * batch_num
+        for i in range(len(region_losses)):
+            rloss = region_losses[i]
+            temp_boxes = get_region_boxes(outputs[i].data, rloss.conf_thresh, rloss.num_classes, rloss.anchors, rloss.num_anchors)
+            for j in range(batch_num):
+                all_boxes[j] = all_boxes[j] + temp_boxes[j]
+        for i in range(batch_num):
             boxes = all_boxes[i]
             boxes = nms(boxes, nms_thresh)
             truths = target[i].view(-1, 5)
