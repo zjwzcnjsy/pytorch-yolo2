@@ -35,10 +35,11 @@ def valid(datacfg, cfgfile, weightfile, outfile):
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=valid_batchsize, shuffle=False, **kwargs) 
 
-    fps = [0]*m.num_classes
+    num_classes = m.losses[0].num_classes
+    fps = [0]*num_classes
     if not os.path.exists('results'):
         os.mkdir('results')
-    for i in range(m.num_classes):
+    for i in range(num_classes):
         buf = '%s/%s%s.txt' % (prefix, outfile, names[i])
         fps[i] = open(buf, 'w')
    
@@ -49,9 +50,15 @@ def valid(datacfg, cfgfile, weightfile, outfile):
     for batch_idx, (data, target) in enumerate(valid_loader):
         data = data.cuda()
         data = Variable(data, volatile = True)
-        output = m(data).data
-        batch_boxes = get_region_boxes(output, conf_thresh, m.num_classes, m.anchors, m.num_anchors, 0, 1)
-        for i in range(output.size(0)):
+        batch_num = data.size(0)
+        outputs = m(data)
+        batch_boxes = [[]] * batch_num
+        for i in range(len(m.losses)):
+            rloss = m.losses[i]
+            temp_boxes = get_region_boxes(outputs[i].data, conf_thresh, rloss.num_classes, rloss.anchors, rloss.num_anchors, 0, 1)
+            for j in range(batch_num):
+                batch_boxes[j] = batch_boxes[j] + temp_boxes[j]
+        for i in range(batch_num):
             lineId = lineId + 1
             fileId = os.path.basename(valid_files[lineId]).split('.')[0]
             width, height = get_image_size(valid_files[lineId])
@@ -71,7 +78,7 @@ def valid(datacfg, cfgfile, weightfile, outfile):
                     prob =det_conf * cls_conf
                     fps[cls_id].write('%s %f %f %f %f %f\n' % (fileId, prob, x1, y1, x2, y2))
 
-    for i in range(m.num_classes):
+    for i in range(num_classes):
         fps[i].close()
 
 if __name__ == '__main__':

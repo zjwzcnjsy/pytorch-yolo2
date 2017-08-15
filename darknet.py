@@ -85,7 +85,7 @@ class Darknet(nn.Module):
 
             if block['type'] == 'net':
                 continue
-            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block['type'] == 'avgpool' or block['type'] == 'softmax' or block['type'] == 'connected':
+            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block['type'] == 'avgpool' or block['type'] == 'softmax' or block['type'] == 'connected' or block['type'] == 'upsampling':
                 x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
@@ -125,7 +125,7 @@ class Darknet(nn.Module):
                 print('unknown type %s' % (block['type']))
 
         if len(region_outputs) > 1:
-            return region_outputs
+            return tuple(region_outputs)
         else:
             return x
 
@@ -240,6 +240,9 @@ class Darknet(nn.Module):
                 loss.coord_scale = float(block['coord_scale'])
                 out_filters.append(prev_filters)
                 models.append(loss)
+            elif block['type'] == 'upsampling':
+                out_filters.append(prev_filters)
+                models.append(nn.UpsamplingBilinear2d(scale_factor=2))
             else:
                 print('unknown type %s' % (block['type']))
     
@@ -290,6 +293,8 @@ class Darknet(nn.Module):
                 pass
             elif block['type'] == 'cost':
                 pass
+            elif block['type'] == 'upsampling':
+                pass
             else:
                 print('unknown type %s' % (block['type']))
 
@@ -334,6 +339,8 @@ class Darknet(nn.Module):
             elif block['type'] == 'softmax':
                 pass
             elif block['type'] == 'cost':
+                pass
+            elif block['type'] == 'upsampling':
                 pass
             else:
                 print('unknown type %s' % (block['type']))

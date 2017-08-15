@@ -75,6 +75,17 @@ def print_cfg(blocks):
             out_widths.append(prev_width)
             out_heights.append(prev_height)
             out_filters.append(prev_filters)
+        elif block['type'] == 'upsampling':
+            width = prev_width * 2
+            height = prev_height * 2
+            filters = prev_filters
+            print('%5d %-6s               %3d x %3d x%4d   ->   %3d x %3d x%4d' % (ind, 'upsampling', prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
         elif block['type'] == 'avgpool':
             width = 1
             height = 1

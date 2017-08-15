@@ -159,7 +159,7 @@ def train(epoch):
         t4 = time.time()
         optimizer.zero_grad()
         t5 = time.time()
-        outputs = [model(data)]
+        outputs = model(data)
         t6 = time.time()
         loss = Variable(torch.zeros(1).cuda())
         for i in range(len(region_losses)):
@@ -210,9 +210,6 @@ def test(epoch):
         cur_model = model.module
     else:
         cur_model = model
-    num_classes = cur_model.num_classes
-    anchors     = cur_model.anchors
-    num_anchors = cur_model.num_anchors
     total       = 0.0
     proposals   = 0.0
     correct     = 0.0
@@ -226,7 +223,7 @@ def test(epoch):
         all_boxes = [[]] * batch_num
         for i in range(len(region_losses)):
             rloss = region_losses[i]
-            temp_boxes = get_region_boxes(outputs[i].data, rloss.conf_thresh, rloss.num_classes, rloss.anchors, rloss.num_anchors)
+            temp_boxes = get_region_boxes(outputs[i].data, conf_thresh, rloss.num_classes, rloss.anchors, rloss.num_anchors)
             for j in range(batch_num):
                 all_boxes[j] = all_boxes[j] + temp_boxes[j]
         for i in range(batch_num):
