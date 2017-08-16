@@ -198,9 +198,10 @@ def train(epoch):
 
 def test(epoch):
     def truths_length(truths):
-        for i in range(50):
+        for i in range(MAX_LABELS):
             if truths[i][1] == 0:
                 return i
+        return 0
 
     model.eval()
     if ngpus > 1:

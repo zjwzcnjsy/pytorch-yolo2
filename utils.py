@@ -10,6 +10,7 @@ from torch.autograd import Variable
 import struct # get_image_size
 import imghdr # get_image_size
 
+MAX_LABELS=50
 def sigmoid(x):
     return 1.0/(math.exp(-x)+1.)
 
@@ -278,7 +279,7 @@ def read_truths(lab_path):
         truths = truths.reshape(truths.size/5, 5) # to avoid single truth problem
         return truths
     else:
-        return np.array([])
+        return np.array([], dtype=np.float32)
 
 def read_truths_args(lab_path, min_box_scale):
     truths = read_truths(lab_path)
@@ -287,7 +288,7 @@ def read_truths_args(lab_path, min_box_scale):
         if truths[i][3] < min_box_scale:
             continue
         new_truths.append([truths[i][0], truths[i][1], truths[i][2], truths[i][3], truths[i][4]])
-    return np.array(new_truths)
+    return np.array(new_truths, dtype=np.float32)
 
 def load_class_names(namesfile):
     class_names = []

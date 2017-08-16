@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
-from utils import read_truths_args, read_truths
+from utils import read_truths_args, read_truths, MAX_LABELS
 from image import *
 
 class listDataset(Dataset):
@@ -37,23 +37,14 @@ class listDataset(Dataset):
 
         if self.train and index % 64== 0:
             if self.seen < 4000*64:
-               width = 13*32
+               width = 512
                self.shape = (width, width)
-            elif self.seen < 8000*64:
-               width = (random.randint(0,3) + 13)*32
-               self.shape = (width, width)
-            elif self.seen < 12000*64:
-               width = (random.randint(0,5) + 12)*32
-               self.shape = (width, width)
-            elif self.seen < 16000*64:
-               width = (random.randint(0,7) + 11)*32
-               self.shape = (width, width)
-            else: # self.seen < 20000*64:
-               width = (random.randint(0,9) + 10)*32
+            else:
+               width = random.randint(1,2) * 512
                self.shape = (width, width)
 
         if self.train:
-            jitter = 0.2
+            jitter = 0.1
             hue = 0.1
             saturation = 1.5 
             exposure = 1.5
@@ -62,20 +53,21 @@ class listDataset(Dataset):
             label = torch.from_numpy(label)
         else:
             img = Image.open(imgpath).convert('RGB')
+            print(imgpath)
             if self.shape:
                 img = img.resize(self.shape)
     
             labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png','.txt')
-            label = torch.zeros(50*5)
+            label = torch.zeros(MAX_LABELS*5)
             if os.path.getsize(labpath):
-                #tmp = torch.from_numpy(np.loadtxt(labpath))
-                tmp = torch.from_numpy(read_truths_args(labpath, 8.0/img.width))
-                #tmp = torch.from_numpy(read_truths(labpath))
+                #truths = read_truths_args(labpath, 8.0/img.width)
+                truths = read_truths_args(labpath, 0)
+                tmp = torch.from_numpy(truths)
                 tmp = tmp.view(-1)
                 tsz = tmp.numel()
                 #print('labpath = %s , tsz = %d' % (labpath, tsz))
-                if tsz > 50*5:
-                    label = tmp[0:50*5]
+                if tsz > MAX_LABELS*5:
+                    label = tmp[0:MAX_LABELS*5]
                 elif tsz > 0:
                     label[0:tsz] = tmp
 

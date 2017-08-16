@@ -3,6 +3,7 @@
 import random
 import os
 from PIL import Image
+from utils import MAX_LABELS
 import numpy as np
 
 
@@ -78,7 +79,7 @@ def data_augmentation(img, shape, jitter, hue, saturation, exposure):
     return img, flip, dx,dy,sx,sy 
 
 def fill_truth_detection(labpath, w, h, flip, dx, dy, sx, sy):
-    max_boxes = 50
+    max_boxes = MAX_LABELS
     label = np.zeros((max_boxes,5))
     if os.path.getsize(labpath):
         bs = np.loadtxt(labpath)
@@ -109,7 +110,7 @@ def fill_truth_detection(labpath, w, h, flip, dx, dy, sx, sy):
                 continue
             label[cc] = bs[i]
             cc += 1
-            if cc >= 50:
+            if cc >= MAX_LABELS:
                 break
 
     label = np.reshape(label, (-1))

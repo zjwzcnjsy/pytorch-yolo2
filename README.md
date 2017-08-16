@@ -1,3 +1,12 @@
+### Train widerface
+1. padding to square, save images and labels
+2. set resize to 512~1024
+3. set max labels to 500
+4. prepare cfg/wider.data
+5. copy cfg/yolo-voc.cfg cfg/wider.cfg
+6. change anchors and classes in cfg/wider.cfg
+7. python train.py cfg/wider.data cfg/wider.cfg darknet19_448.conv.23
+
 ### pytorch-yolo2
 Convert https://pjreddie.com/darknet/yolo/ into pytorch. This repository is trying to achieve the following goals.
 - [x] implement RegionLoss, MaxPoolStride1, Reorg, GolbalAvgPool2d

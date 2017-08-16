@@ -26,7 +26,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
     for b in xrange(nB):
         cur_pred_boxes = pred_boxes[b*nAnchors:(b+1)*nAnchors].t()
         cur_ious = torch.zeros(nAnchors)
-        for t in xrange(50):
+        for t in xrange(MAX_LABELS):
             if target[b][t*5+1] == 0:
                 break
             gx = target[b][t*5+1]*nW
@@ -50,7 +50,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
     nGT = 0
     nCorrect = 0
     for b in xrange(nB):
-        for t in xrange(50):
+        for t in xrange(MAX_LABELS):
             if target[b][t*5+1] == 0:
                 break
             nGT = nGT + 1
