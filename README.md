@@ -5,7 +5,9 @@
 4. prepare cfg/wider.data
 5. copy cfg/yolo-voc.cfg cfg/wider.cfg
 6. change anchors and classes in cfg/wider.cfg
-7. python train.py cfg/wider.data cfg/wider.cfg darknet19_448.conv.23
+7. extract 300 val images for test
+8. set min_scale in dataset.py
+9. python train.py cfg/wider.data cfg/wider.cfg darknet19_448.conv.23
 
 ### pytorch-yolo2
 Convert https://pjreddie.com/darknet/yolo/ into pytorch. This repository is trying to achieve the following goals.

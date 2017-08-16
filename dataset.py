@@ -40,7 +40,7 @@ class listDataset(Dataset):
                width = 512
                self.shape = (width, width)
             else:
-               width = random.randint(1,2) * 512
+               width = random.randint(16,32) * 32
                self.shape = (width, width)
 
         if self.train:
@@ -60,8 +60,7 @@ class listDataset(Dataset):
             labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png','.txt')
             label = torch.zeros(MAX_LABELS*5)
             if os.path.getsize(labpath):
-                #truths = read_truths_args(labpath, 8.0/img.width)
-                truths = read_truths_args(labpath, 0)
+                truths = read_truths_args(labpath, 8.0/img.width)
                 tmp = torch.from_numpy(truths)
                 tmp = tmp.view(-1)
                 tsz = tmp.numel()
