@@ -9,6 +9,17 @@
 8. set min_scale in dataset.py
 9. python train.py cfg/wider.data cfg/wider.cfg darknet19_448.conv.23
 
+*Train Res50*
+
+#### Experiments
+- wider2: wider2-results
+- wider3: wider3-results
+- wider4: wider4-results
+- res50: res50-results 
+1. convert resnet50 from pytorch to darknet
+2. add normalize in train.py => train_res50.py
+3. decrease learning rate
+
 ### pytorch-yolo2
 Convert https://pjreddie.com/darknet/yolo/ into pytorch. This repository is trying to achieve the following goals.
 - [x] implement RegionLoss, MaxPoolStride1, Reorg, GolbalAvgPool2d
