@@ -39,6 +39,7 @@ nsamples      = file_lines(trainlist)
 gpus          = data_options['gpus']  # e.g. 0,1,2,3
 ngpus         = len(gpus.split(','))
 num_workers   = int(data_options['num_workers'])
+min_scale     = int(data_options['min_scale'])
 
 batch_size    = int(net_options['batch'])
 max_batches   = int(net_options['max_batches'])
@@ -86,7 +87,7 @@ test_loader = torch.utils.data.DataLoader(
                    shuffle=False,
                    transform=transforms.Compose([
                        transforms.ToTensor(),
-                   ]), train=False),
+                   ]), train=False, min_scale=min_scale),
     batch_size=batch_size, shuffle=False, **kwargs)
 
 if use_cuda:
@@ -135,7 +136,7 @@ def train(epoch):
                        train=True, 
                        seen=cur_model.seen,
                        batch_size=batch_size,
-                       num_workers=num_workers),
+                       num_workers=num_workers, min_scale=min_scale),
         batch_size=batch_size, shuffle=False, **kwargs)
 
     lr = adjust_learning_rate(optimizer, processed_batches)

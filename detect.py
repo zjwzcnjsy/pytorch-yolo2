@@ -102,9 +102,6 @@ def detect_skimage(cfgfile, weightfile, imgfile):
     class_names = load_class_names(namesfile)
     plot_boxes_cv2(img, boxes, savename='predictions.jpg', class_names=class_names)
 
-
-
-
 if __name__ == '__main__':
     if len(sys.argv) == 4:
         cfgfile = sys.argv[1]

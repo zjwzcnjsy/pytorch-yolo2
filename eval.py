@@ -71,6 +71,7 @@ def test():
         for i in range(MAX_LABELS):
             if truths[i][1] == 0:
                 return i
+        return 0
 
     model.eval()
     num_classes = model.module.num_classes

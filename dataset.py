@@ -12,7 +12,7 @@ from image import *
 
 class listDataset(Dataset):
 
-    def __init__(self, root, shape=None, shuffle=True, transform=None, target_transform=None, train=False, seen=0, batch_size=64, num_workers=4):
+    def __init__(self, root, shape=None, shuffle=True, transform=None, target_transform=None, train=False, seen=0, batch_size=64, num_workers=4, min_scale=4):
        with open(root, 'r') as file:
            self.lines = file.readlines()
 
@@ -27,6 +27,7 @@ class listDataset(Dataset):
        self.seen = seen
        self.batch_size = batch_size
        self.num_workers = num_workers
+       self.min_scale = min_scale
 
     def __len__(self):
         return self.nSamples
@@ -39,8 +40,11 @@ class listDataset(Dataset):
             if self.seen < 4000*64:
                width = 512
                self.shape = (width, width)
+            elif self.seen < 8000*64:
+               width = random.randint(12,24) * 32
+               self.shape = (width, width)
             else:
-               width = random.randint(16,32) * 32
+               width = random.randint(8,32) * 32
                self.shape = (width, width)
 
         if self.train:
@@ -53,14 +57,13 @@ class listDataset(Dataset):
             label = torch.from_numpy(label)
         else:
             img = Image.open(imgpath).convert('RGB')
-            print(imgpath)
             if self.shape:
                 img = img.resize(self.shape)
     
             labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png','.txt')
             label = torch.zeros(MAX_LABELS*5)
             if os.path.getsize(labpath):
-                truths = read_truths_args(labpath, 8.0/img.width)
+                truths = read_truths_args(labpath, self.min_scale/img.width)
                 tmp = torch.from_numpy(truths)
                 tmp = tmp.view(-1)
                 tsz = tmp.numel()
