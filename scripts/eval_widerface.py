@@ -4,7 +4,9 @@ from PIL import Image
 import sys
 sys.path.append('.')
 from darknet import Darknet
-from utils import do_detect, plot_boxes, load_class_names
+from utils import *
+import cv2
+import numpy as np
 
 def save_boxes(img, boxes, savename):
     fp = open(savename, 'w')
@@ -12,8 +14,8 @@ def save_boxes(img, boxes, savename):
     filename = os.path.splitext(filename)[0]
     fp.write('%s\n' % filename)
     fp.write('%d\n' % len(boxes))
-    width = img.width
-    height = img.height
+    width = img.shape[1]
+    height = img.shape[0]
     for box in boxes:
         x1 = round((box[0] - box[2]/2.0) * width)
         y1 = round((box[1] - box[3]/2.0) * height)
@@ -24,6 +26,14 @@ def save_boxes(img, boxes, savename):
         conf = box[4]
         fp.write('%d %d %d %d %f\n' % (x1, y1, w, h, conf))
     fp.close()
+
+def pad_wh(img):
+    wid = img.shape[1]
+    hei = img.shape[0]
+    siz = max(wid, hei)
+    new_img = np.zeros((siz, siz, 3), np.uint8)
+    new_img[:hei, :wid, :] = img
+    return new_img
 
 def eval_widerface(cfgfile, weightfile, valdir, savedir):
     m = Darknet(cfgfile)
@@ -41,19 +51,22 @@ def eval_widerface(cfgfile, weightfile, valdir, savedir):
                 os.mkdir(targetdir)
             for filename in filenames:
                 imgfile = os.path.join(parent,filename)
-                img = Image.open(imgfile).convert('RGB')
-                sized_width = int(round(img.width*1.0/scale_size) * 16)
-                sized_height = int(round(img.height*1.0/scale_size) * 16)
-                sized = img.resize((sized_width, sized_height))
-                print(filename, img.width, img.height, sized_width, sized_height)
-                if sized_width * sized_height > 1024 * 2560:
-                    print('omit %s' % filename)
-                    continue
-                boxes = do_detect(m, sized, 0.05, 0.4, use_cuda)
+                img = cv2.imread(imgfile)
+                orig_wid = img.shape[1]
+                orig_hei = img.shape[0]
+                img = pad_wh(img)
+                img1 = cv2.resize(img, (512, 512))
+                img2 = cv2.resize(img, (1024, 1024))
+                img3 = cv2.resize(img, (2048, 2048))
+                boxes1 = do_detect(m, img1, 0.05, 0.4, use_cuda)
+                boxes2 = do_detect(m, img2, 0.05, 0.4, use_cuda)
+                boxes3 = do_detect(m, img3, 0.05, 0.4, use_cuda)
+                boxes = boxes1 + boxes2 + boxes3
+                boxes = nms(boxes, 0.1)
                 if True:
                     savename = os.path.join(targetdir, filename)
                     print('save to %s' % savename)
-                    plot_boxes(img, boxes, savename, class_names)
+                    plot_boxes_cv2(img, boxes, savename)
                 if True:
                     savename = os.path.join(targetdir, os.path.splitext(filename)[0]+".txt")
                     print('save to %s' % savename)
@@ -62,5 +75,5 @@ def eval_widerface(cfgfile, weightfile, valdir, savedir):
 if __name__ == '__main__':
     #eval_widerface('resnet50_test.cfg', 'resnet50_98000.weights', 'widerface/WIDER_val/images/', 'widerface/wider_val_pred/')
     #eval_widerface('resnet50_test.cfg', 'resnet50_148000.weights', 'widerface/WIDER_val/images/', 'widerface/wider_val_pred/')
-    eval_widerface('resnet50_x32_test.cfg', 'resnet50_x32_288000.weights', 'widerface/WIDER_val/images/', 'widerface/wider_val_pred/')
+    eval_widerface('wider4_results/wider4.cfg', 'wider4_results/backup/000050.weights', '/home/xiaohang/wider_face/WIDER_val/images/', 'wider_val_pred/')
 
