@@ -153,8 +153,8 @@ def print_cfg(blocks):
 def load_conv(buf, start, conv_model):
     num_w = conv_model.weight.numel()
     num_b = conv_model.bias.numel()
-    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
-    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]).view(conv_model.bias.size()));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]).view(conv_model.weight.size())); start = start + num_w
     return start
 
 def save_conv(fp, conv_model):
@@ -168,11 +168,12 @@ def save_conv(fp, conv_model):
 def load_conv_bn(buf, start, conv_model, bn_model):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
-    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
-    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
-    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b]));  start = start + num_b
-    bn_model.running_var.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
-    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    print(conv_model.weight.size(), bn_model.bias.size())
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]).view(bn_model.bias.size()));     start = start + num_b
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b]).view(bn_model.weight.size()));   start = start + num_b
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b]).view(bn_model.running_mean.size()));  start = start + num_b
+    bn_model.running_var.copy_(torch.from_numpy(buf[start:start+num_b]).view(bn_model.running_var.size()));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]).view(conv_model.weight.size())); start = start + num_w 
     return start
 
 def save_conv_bn(fp, conv_model, bn_model):

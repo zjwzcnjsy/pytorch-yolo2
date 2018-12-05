@@ -110,8 +110,8 @@ def convert2cpu(gpu_matrix):
 def convert2cpu_long(gpu_matrix):
     return torch.LongTensor(gpu_matrix.size()).copy_(gpu_matrix)
 
-def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, only_objectness=1, validation=False):
-    anchor_step = len(anchors)/num_anchors
+def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, only_objectness=1, validation=False, use_cuda=1):
+    anchor_step = len(anchors)//num_anchors
     if output.dim() == 3:
         output = output.unsqueeze(0)
     batch = output.size(0)
@@ -123,15 +123,23 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     all_boxes = []
     output = output.view(batch*num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, batch*num_anchors*h*w)
 
-    grid_x = torch.linspace(0, w-1, w).repeat(h,1).repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w).cuda()
-    grid_y = torch.linspace(0, h-1, h).repeat(w,1).t().repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w).cuda()
+    grid_x = torch.linspace(0, w-1, w).repeat(h,1).repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w)
+    if use_cuda:
+        grid_x = grid_x.cuda()
+    grid_y = torch.linspace(0, h-1, h).repeat(w,1).t().repeat(batch*num_anchors, 1, 1).view(batch*num_anchors*h*w)
+    if use_cuda:
+        grid_y = grid_y.cuda()
     xs = torch.sigmoid(output[0]) + grid_x
     ys = torch.sigmoid(output[1]) + grid_y
 
     anchor_w = torch.Tensor(anchors).view(num_anchors, anchor_step).index_select(1, torch.LongTensor([0]))
     anchor_h = torch.Tensor(anchors).view(num_anchors, anchor_step).index_select(1, torch.LongTensor([1]))
-    anchor_w = anchor_w.repeat(batch, 1).repeat(1, 1, h*w).view(batch*num_anchors*h*w).cuda()
-    anchor_h = anchor_h.repeat(batch, 1).repeat(1, 1, h*w).view(batch*num_anchors*h*w).cuda()
+    anchor_w = anchor_w.repeat(batch, 1).repeat(1, 1, h*w).view(batch*num_anchors*h*w)
+    if use_cuda:
+        anchor_w = anchor_w.cuda()
+    anchor_h = anchor_h.repeat(batch, 1).repeat(1, 1, h*w).view(batch*num_anchors*h*w)
+    if use_cuda:
+        anchor_h = anchor_h.cuda()
     ws = torch.exp(output[2]) * anchor_w
     hs = torch.exp(output[3]) * anchor_h
 
@@ -340,7 +348,7 @@ def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
     #print('')
     t3 = time.time()
 
-    boxes = get_region_boxes(output, conf_thresh, model.num_classes, model.anchors, model.num_anchors)[0]
+    boxes = get_region_boxes(output, conf_thresh, model.num_classes, model.anchors, model.num_anchors, use_cuda=1)[0]
     #for j in range(len(boxes)):
     #    print(boxes[j])
     t4 = time.time()
