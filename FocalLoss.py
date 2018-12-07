@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+
 class FocalLoss(nn.Module):
     r"""
         This criterion is a implemenation of Focal Loss, which is proposed in 
@@ -28,6 +29,7 @@ class FocalLoss(nn.Module):
                                 instead summed for each minibatch.
 
     """
+
     def __init__(self, class_num, alpha=None, gamma=2, size_average=True):
         super(FocalLoss, self).__init__()
         if alpha is None:
@@ -51,36 +53,33 @@ class FocalLoss(nn.Module):
         class_mask = Variable(class_mask)
         ids = targets.view(-1, 1)
         class_mask.scatter_(1, ids.data, 1.)
-        #print(class_mask)
-        
+        # print(class_mask)
 
         if inputs.is_cuda and not self.alpha.is_cuda:
             self.alpha = self.alpha.cuda()
         alpha = self.alpha[ids.data.view(-1)]
-        
-        probs = (P*class_mask).sum(1).view(-1,1)
+
+        probs = (P * class_mask).sum(1).view(-1, 1)
 
         log_p = probs.log()
-        #print('probs size= {}'.format(probs.size()))
-        #print(probs)
+        # print('probs size= {}'.format(probs.size()))
+        # print(probs)
 
-        batch_loss = -alpha*(torch.pow((1-probs), self.gamma))*log_p 
-        #print('-----bacth_loss------')
-        #print(batch_loss)
+        batch_loss = -alpha * (torch.pow((1 - probs), self.gamma)) * log_p
+        # print('-----bacth_loss------')
+        # print(batch_loss)
 
-        
         if self.size_average:
             loss = batch_loss.mean()
         else:
             loss = batch_loss.sum()
         return loss
 
-        
 
 if __name__ == "__main__":
     alpha = torch.rand(21, 1)
     print(alpha)
-    FL = FocalLoss(class_num=5, gamma=0 )
+    FL = FocalLoss(class_num=5, gamma=0)
     CE = nn.CrossEntropyLoss()
     N = 4
     C = 5
@@ -101,9 +100,5 @@ if __name__ == "__main__":
     print('ce = {}, fl ={}'.format(ce_loss.data[0], fl_loss.data[0]))
     fl_loss.backward()
     ce_loss.backward()
-    #print(inputs_fl.grad.data)
+    # print(inputs_fl.grad.data)
     print(inputs_ce.grad.data)
-
-        
-
-

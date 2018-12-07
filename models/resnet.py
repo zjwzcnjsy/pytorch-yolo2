@@ -4,9 +4,11 @@ import torch.nn.functional as F
 from collections import OrderedDict
 from region_loss import RegionLoss
 
+
 def conv3x3(in_planes, out_planes, stride=1):
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, 
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3,
                      stride=stride, padding=1, bias=False)
+
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -38,6 +40,7 @@ class BasicBlock(nn.Module):
         out = self.relu(out)
 
         return out
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -76,6 +79,7 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
+
 
 class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes=1000):
@@ -135,14 +139,15 @@ class ResNet(nn.Module):
 
         return x
 
+
 class Resnet101(nn.Module):
     def __init__(self):
         super(Resnet, self).__init__()
         self.seen = 0
         self.num_classes = 20
-        self.anchors = [1.08,1.19,  3.42,4.41,  6.63,11.38,  9.42,5.11,  16.62,10.52]
-        self.num_anchors = len(self.anchors)/2
-        num_output = (5+self.num_classes)*self.num_anchors
+        self.anchors = [1.08, 1.19, 3.42, 4.41, 6.63, 11.38, 9.42, 5.11, 16.62, 10.52]
+        self.num_anchors = len(self.anchors) / 2
+        num_output = (5 + self.num_classes) * self.num_anchors
         self.width = 160
         self.height = 160
 
@@ -155,4 +160,3 @@ class Resnet101(nn.Module):
 
     def print_network(self):
         print(self)
-

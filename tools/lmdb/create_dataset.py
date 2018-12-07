@@ -1,8 +1,9 @@
 import sys
 import os
-import lmdb # install lmdb by "pip install lmdb"
+import lmdb  # install lmdb by "pip install lmdb"
 import cv2
 import numpy as np
+
 
 def checkImageIsValid(imageBin):
     if imageBin is None:
@@ -38,7 +39,9 @@ def createDataset(outputPath, imageListFile, checkValid=True):
     cnt = 1
     for i in xrange(nSamples):
         imagePath = imagePathList[i].rstrip()
-        labelPath = imagePath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png','.txt')
+        labelPath = imagePath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg',
+                                                                                                  '.txt').replace(
+            '.png', '.txt')
         with open(labelPath) as f:
             label = f.readlines()
         label = ''.join(label)
@@ -62,10 +65,11 @@ def createDataset(outputPath, imageListFile, checkValid=True):
             cache = {}
             print('Written %d / %d' % (cnt, nSamples))
         cnt += 1
-    nSamples = cnt-1
+    nSamples = cnt - 1
     cache['num-samples'] = str(nSamples)
     writeCache(env, cache)
     print('Created dataset with %d samples' % nSamples)
+
 
 if __name__ == '__main__':
     outputPath = sys.argv[1]

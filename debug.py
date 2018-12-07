@@ -11,20 +11,21 @@ from torch.autograd import Variable
 cfgfile = 'face4.1re_95.91.cfg'
 weightfile = 'face4.1re_95.91.conv.15'
 imgpath = 'data/train/images/10002.png'
-labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png','.txt')
-label = torch.zeros(50*5)
+labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt').replace('.png',
+                                                                                                              '.txt')
+label = torch.zeros(50 * 5)
 if os.path.getsize(labpath):
     tmp = torch.from_numpy(np.loadtxt(labpath))
-    #tmp = torch.from_numpy(read_truths_args(labpath, 8.0/img.width))
-    #tmp = torch.from_numpy(read_truths(labpath))
+    # tmp = torch.from_numpy(read_truths_args(labpath, 8.0/img.width))
+    # tmp = torch.from_numpy(read_truths(labpath))
     tmp = tmp.view(-1)
     tsz = tmp.numel()
-    #print('labpath = %s , tsz = %d' % (labpath, tsz))
-    if tsz > 50*5:
-        label = tmp[0:50*5]
+    # print('labpath = %s , tsz = %d' % (labpath, tsz))
+    if tsz > 50 * 5:
+        label = tmp[0:50 * 5]
     elif tsz > 0:
         label[0:tsz] = tmp
-label = label.view(1, 50*5)
+label = label.view(1, 50 * 5)
 
 m = Darknet(cfgfile)
 region_loss = m.loss
@@ -66,9 +67,12 @@ print('----- loss --------------------')
 print(loss)
 
 save_grad = None
+
+
 def extract(grad):
     global saved_grad
     saved_grad = convert2cpu(grad.data)
+
 
 output.register_hook(extract)
 loss.backward()
@@ -79,8 +83,8 @@ for i in xrange(saved_grad.size(0)):
         print('%d : %f' % (i, saved_grad[i]))
 
 print(m.state_dict().keys())
-#print(m.models[0][0].weight.grad.data.storage()[0:100])
-#print(m.models[14][0].weight.data.storage()[0:100])
+# print(m.models[0][0].weight.grad.data.storage()[0:100])
+# print(m.models[14][0].weight.data.storage()[0:100])
 weight = m.models[13][0].weight.data
 grad = m.models[13][0].weight.grad.data
 mask = torch.abs(grad) >= 0.1

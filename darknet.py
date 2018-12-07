@@ -4,36 +4,41 @@ import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
 from cfg import *
-#from layers.batchnorm.bn import BN2d
+
+
+# from layers.batchnorm.bn import BN2d
 
 class MaxPoolStride1(nn.Module):
     def __init__(self):
         super(MaxPoolStride1, self).__init__()
 
     def forward(self, x):
-        x = F.max_pool2d(F.pad(x, (0,1,0,1), mode='replicate'), 2, stride=1)
+        x = F.max_pool2d(F.pad(x, (0, 1, 0, 1), mode='replicate'), 2, stride=1)
         return x
+
 
 class Reorg(nn.Module):
     def __init__(self, stride=2):
         super(Reorg, self).__init__()
         self.stride = stride
+
     def forward(self, x):
         stride = self.stride
-        assert(x.data.dim() == 4)
+        assert (x.data.dim() == 4)
         B = x.data.size(0)
         C = x.data.size(1)
         H = x.data.size(2)
         W = x.data.size(3)
-        assert(H % stride == 0)
-        assert(W % stride == 0)
+        assert (H % stride == 0)
+        assert (W % stride == 0)
         ws = stride
         hs = stride
-        x = x.view(B, C, H//hs, hs, W//ws, ws).transpose(3,4).contiguous()
-        x = x.view(B, C, H//hs*W//ws, hs*ws).transpose(2,3).contiguous()
-        x = x.view(B, C, hs*ws, H//hs, W//ws).transpose(1,2).contiguous()
-        x = x.view(B, hs*ws*C, H//hs, W//ws)
+        x = x.view(B, C, H // hs, hs, W // ws, ws).transpose(3, 4).contiguous()
+        x = x.view(B, C, H // hs * W // ws, hs * ws).transpose(2, 3).contiguous()
+        x = x.view(B, C, hs * ws, H // hs, W // ws).transpose(1, 2).contiguous()
+        x = x.view(B, hs * ws * C, H // hs, W // ws)
         return x
+
 
 class GlobalAvgPool2d(nn.Module):
     def __init__(self):
@@ -48,6 +53,7 @@ class GlobalAvgPool2d(nn.Module):
         x = x.view(N, C)
         return x
 
+
 # for route and shortcut
 class EmptyModule(nn.Module):
     def __init__(self):
@@ -56,24 +62,25 @@ class EmptyModule(nn.Module):
     def forward(self, x):
         return x
 
+
 # support route shortcut and reorg
 class Darknet(nn.Module):
     def __init__(self, cfgfile):
         super(Darknet, self).__init__()
         self.blocks = parse_cfg(cfgfile)
-        self.models = self.create_network(self.blocks) # merge conv, bn,leaky
-        self.loss = self.models[len(self.models)-1]
+        self.models = self.create_network(self.blocks)  # merge conv, bn,leaky
+        self.loss = self.models[len(self.models) - 1]
 
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
 
-        if self.blocks[(len(self.blocks)-1)]['type'] == 'region':
+        if self.blocks[(len(self.blocks) - 1)]['type'] == 'region':
             self.anchors = self.loss.anchors
             self.num_anchors = self.loss.num_anchors
             self.anchor_step = self.loss.anchor_step
             self.num_classes = self.loss.num_classes
 
-        self.header = torch.IntTensor([0,0,0,0])
+        self.header = torch.IntTensor([0, 0, 0, 0])
         self.seen = 0
 
     def forward(self, x):
@@ -82,32 +89,33 @@ class Darknet(nn.Module):
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
-            #if ind > 0:
+            # if ind > 0:
             #    return x
 
             if block['type'] == 'net':
                 continue
-            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block['type'] == 'avgpool' or block['type'] == 'softmax' or block['type'] == 'connected':
+            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block[
+                'type'] == 'avgpool' or block['type'] == 'softmax' or block['type'] == 'connected':
                 x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
                 layers = block['layers'].split(',')
-                layers = [int(i) if int(i) > 0 else int(i)+ind for i in layers]
+                layers = [int(i) if int(i) > 0 else int(i) + ind for i in layers]
                 if len(layers) == 1:
                     x = outputs[layers[0]]
                     outputs[ind] = x
                 elif len(layers) == 2:
                     x1 = outputs[layers[0]]
                     x2 = outputs[layers[1]]
-                    x = torch.cat((x1,x2),1)
+                    x = torch.cat((x1, x2), 1)
                     outputs[ind] = x
             elif block['type'] == 'shortcut':
                 from_layer = int(block['from'])
                 activation = block['activation']
                 from_layer = from_layer if from_layer > 0 else from_layer + ind
                 x1 = outputs[from_layer]
-                x2 = outputs[ind-1]
-                x  = x1 + x2
+                x2 = outputs[ind - 1]
+                x = x1 + x2
                 if activation == 'leaky':
                     x = F.leaky_relu(x, 0.1, inplace=True)
                 elif activation == 'relu':
@@ -131,9 +139,9 @@ class Darknet(nn.Module):
 
     def create_network(self, blocks):
         models = nn.ModuleList()
-    
+
         prev_filters = 3
-        out_filters =[]
+        out_filters = []
         conv_id = 0
         for block in blocks:
             if block['type'] == 'net':
@@ -146,15 +154,17 @@ class Darknet(nn.Module):
                 kernel_size = int(block['size'])
                 stride = int(block['stride'])
                 is_pad = int(block['pad'])
-                pad = (kernel_size-1)//2 if is_pad else 0
+                pad = (kernel_size - 1) // 2 if is_pad else 0
                 activation = block['activation']
                 model = nn.Sequential()
                 if batch_normalize:
-                    model.add_module('conv{0}'.format(conv_id), nn.Conv2d(prev_filters, filters, kernel_size, stride, pad, bias=False))
+                    model.add_module('conv{0}'.format(conv_id),
+                                     nn.Conv2d(prev_filters, filters, kernel_size, stride, pad, bias=False))
                     model.add_module('bn{0}'.format(conv_id), nn.BatchNorm2d(filters))
-                    #model.add_module('bn{0}'.format(conv_id), BN2d(filters))
+                    # model.add_module('bn{0}'.format(conv_id), BN2d(filters))
                 else:
-                    model.add_module('conv{0}'.format(conv_id), nn.Conv2d(prev_filters, filters, kernel_size, stride, pad))
+                    model.add_module('conv{0}'.format(conv_id),
+                                     nn.Conv2d(prev_filters, filters, kernel_size, stride, pad))
                 if activation == 'leaky':
                     model.add_module('leaky{0}'.format(conv_id), nn.LeakyReLU(0.1, inplace=True))
                 elif activation == 'relu':
@@ -196,17 +206,17 @@ class Darknet(nn.Module):
             elif block['type'] == 'route':
                 layers = block['layers'].split(',')
                 ind = len(models)
-                layers = [int(i) if int(i) > 0 else int(i)+ind for i in layers]
+                layers = [int(i) if int(i) > 0 else int(i) + ind for i in layers]
                 if len(layers) == 1:
                     prev_filters = out_filters[layers[0]]
                 elif len(layers) == 2:
-                    assert(layers[0] == ind - 1)
+                    assert (layers[0] == ind - 1)
                     prev_filters = out_filters[layers[0]] + out_filters[layers[1]]
                 out_filters.append(prev_filters)
                 models.append(EmptyModule())
             elif block['type'] == 'shortcut':
                 ind = len(models)
-                prev_filters = out_filters[ind-1]
+                prev_filters = out_filters[ind - 1]
                 out_filters.append(prev_filters)
                 models.append(EmptyModule())
             elif block['type'] == 'connected':
@@ -215,12 +225,12 @@ class Darknet(nn.Module):
                     model = nn.Linear(prev_filters, filters)
                 elif block['activation'] == 'leaky':
                     model = nn.Sequential(
-                               nn.Linear(prev_filters, filters),
-                               nn.LeakyReLU(0.1, inplace=True))
+                        nn.Linear(prev_filters, filters),
+                        nn.LeakyReLU(0.1, inplace=True))
                 elif block['activation'] == 'relu':
                     model = nn.Sequential(
-                               nn.Linear(prev_filters, filters),
-                               nn.ReLU(inplace=True))
+                        nn.Linear(prev_filters, filters),
+                        nn.ReLU(inplace=True))
                 prev_filters = filters
                 out_filters.append(prev_filters)
                 models.append(model)
@@ -230,7 +240,7 @@ class Darknet(nn.Module):
                 loss.anchors = [float(i) for i in anchors]
                 loss.num_classes = int(block['classes'])
                 loss.num_anchors = int(block['num'])
-                loss.anchor_step = len(loss.anchors)/loss.num_anchors
+                loss.anchor_step = len(loss.anchors) / loss.num_anchors
                 loss.object_scale = float(block['object_scale'])
                 loss.noobject_scale = float(block['noobject_scale'])
                 loss.class_scale = float(block['class_scale'])
@@ -239,7 +249,7 @@ class Darknet(nn.Module):
                 models.append(loss)
             else:
                 print('unknown type %s' % (block['type']))
-    
+
         return models
 
     def load_weights(self, weightfile):
@@ -247,7 +257,7 @@ class Darknet(nn.Module):
         header = np.fromfile(fp, count=4, dtype=np.int32)
         self.header = torch.from_numpy(header)
         self.seen = self.header[3]
-        buf = np.fromfile(fp, dtype = np.float32)
+        buf = np.fromfile(fp, dtype=np.float32)
         fp.close()
 
         start = 0
@@ -292,7 +302,7 @@ class Darknet(nn.Module):
 
     def save_weights(self, outfile, cutoff=0):
         if cutoff <= 0:
-            cutoff = len(self.blocks)-1
+            cutoff = len(self.blocks) - 1
 
         fp = open(outfile, 'wb')
         self.header[3] = self.seen
@@ -300,7 +310,7 @@ class Darknet(nn.Module):
         header.numpy().tofile(fp)
 
         ind = -1
-        for blockId in range(1, cutoff+1):
+        for blockId in range(1, cutoff + 1):
             ind = ind + 1
             block = self.blocks[blockId]
             if block['type'] == 'convolutional':
