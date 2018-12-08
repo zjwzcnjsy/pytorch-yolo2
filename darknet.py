@@ -85,7 +85,6 @@ class Darknet(nn.Module):
 
     def forward(self, x):
         ind = -2
-        self.loss = None
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
@@ -123,11 +122,6 @@ class Darknet(nn.Module):
                 outputs[ind] = x
             elif block['type'] == 'region':
                 continue
-                if self.loss:
-                    self.loss = self.loss + self.models[ind](x)
-                else:
-                    self.loss = self.models[ind](x)
-                outputs[ind] = None
             elif block['type'] == 'cost':
                 continue
             else:
@@ -240,7 +234,7 @@ class Darknet(nn.Module):
                 loss.anchors = [float(i) for i in anchors]
                 loss.num_classes = int(block['classes'])
                 loss.num_anchors = int(block['num'])
-                loss.anchor_step = len(loss.anchors) / loss.num_anchors
+                loss.anchor_step = int(len(loss.anchors) / loss.num_anchors)
                 loss.object_scale = float(block['object_scale'])
                 loss.noobject_scale = float(block['noobject_scale'])
                 loss.class_scale = float(block['class_scale'])
@@ -323,9 +317,9 @@ class Darknet(nn.Module):
             elif block['type'] == 'connected':
                 model = self.models[ind]
                 if block['activation'] != 'linear':
-                    save_fc(fc, model)
+                    save_fc(fp, model)
                 else:
-                    save_fc(fc, model[0])
+                    save_fc(fp, model[0])
             elif block['type'] == 'maxpool':
                 pass
             elif block['type'] == 'reorg':

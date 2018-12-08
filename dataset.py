@@ -93,4 +93,4 @@ class listDataset(Dataset):
             label = self.target_transform(label)
 
         self.seen = self.seen + self.num_workers
-        return (img, label)
+        return img, label

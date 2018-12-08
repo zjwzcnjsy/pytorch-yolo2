@@ -85,7 +85,7 @@ def data_augmentation(img, shape, jitter, hue, saturation, exposure):
 
 def fill_truth_detection(labpath, w, h, flip, dx, dy, sx, sy):
     max_boxes = 50
-    label = np.zeros((max_boxes, 5))
+    label = np.zeros((max_boxes, 5), dtype=np.float32)
     if os.path.getsize(labpath):
         bs = np.loadtxt(labpath)
         if bs is None:
