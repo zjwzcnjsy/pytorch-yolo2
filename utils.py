@@ -156,7 +156,7 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
 
     det_confs = torch.sigmoid(output[4])
 
-    cls_confs = torch.nn.Softmax()(Variable(output[5:5 + num_classes].transpose(0, 1))).data
+    cls_confs = torch.nn.Softmax()(output[5:5 + num_classes].transpose(0, 1))
     cls_max_confs, cls_max_ids = torch.max(cls_confs, 1)
     cls_max_confs = cls_max_confs.view(-1)
     cls_max_ids = cls_max_ids.view(-1)
@@ -164,15 +164,15 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
 
     sz_hw = h * w
     sz_hwa = sz_hw * num_anchors
-    det_confs = convert2cpu(det_confs)
-    cls_max_confs = convert2cpu(cls_max_confs)
-    cls_max_ids = convert2cpu_long(cls_max_ids)
-    xs = convert2cpu(xs)
-    ys = convert2cpu(ys)
-    ws = convert2cpu(ws)
-    hs = convert2cpu(hs)
+    det_confs = det_confs.cpu()
+    cls_max_confs = cls_max_confs.cpu()
+    cls_max_ids = cls_max_ids.cpu()
+    xs = xs.cpu()
+    ys = ys.cpu()
+    ws = ws.cpu()
+    hs = hs.cpu()
     if validation:
-        cls_confs = convert2cpu(cls_confs.view(-1, num_classes))
+        cls_confs = cls_confs.view(-1, num_classes).cpu()
     t2 = time.time()
     for b in range(batch):
         boxes = []
@@ -203,12 +203,6 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
                         boxes.append(box)
         all_boxes.append(boxes)
     t3 = time.time()
-    if False:
-        print('---------------------------------')
-        print('matrix computation : %f' % (t1 - t0))
-        print('        gpu to cpu : %f' % (t2 - t1))
-        print('      boxes filter : %f' % (t3 - t2))
-        print('---------------------------------')
     return all_boxes
 
 

@@ -24,11 +24,11 @@ class Reorg(nn.Module):
 
     def forward(self, x):
         stride = self.stride
-        assert (x.data.dim() == 4)
-        B = x.data.size(0)
-        C = x.data.size(1)
-        H = x.data.size(2)
-        W = x.data.size(3)
+        assert (x.dim() == 4)
+        B = x.size(0)
+        C = x.size(1)
+        H = x.size(2)
+        W = x.size(3)
         assert (H % stride == 0)
         assert (W % stride == 0)
         ws = stride
@@ -45,10 +45,10 @@ class GlobalAvgPool2d(nn.Module):
         super(GlobalAvgPool2d, self).__init__()
 
     def forward(self, x):
-        N = x.data.size(0)
-        C = x.data.size(1)
-        H = x.data.size(2)
-        W = x.data.size(3)
+        N = x.size(0)
+        C = x.size(1)
+        H = x.size(2)
+        W = x.size(3)
         x = F.avg_pool2d(x, (H, W))
         x = x.view(N, C)
         return x
@@ -85,6 +85,7 @@ class Darknet(nn.Module):
 
     def forward(self, x):
         ind = -2
+        self.loss = None
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
