@@ -42,11 +42,8 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
         conf_mask[b][temp_thresh.view(conf_mask[b].shape)] = 0
     if seen < 12800:
         if anchor_step == 4:
-            tx = torch.tensor(anchors).view(nA, anchor_step).index_select(1, torch.LongTensor([2])).view(1, nA, 1,
-                                                                                                              1).repeat(
-                nB, 1, nH, nW)
-            ty = torch.tensor(anchors).view(num_anchors, anchor_step).index_select(1, torch.LongTensor([2])).view(
-                1, nA, 1, 1).repeat(nB, 1, nH, nW)
+            tx = torch.tensor(anchors).view(nA, anchor_step)[:, 2].view(1, nA, 1, 1).repeat(nB, 1, nH, nW)
+            ty = torch.tensor(anchors).view(num_anchors, anchor_step)[:, 2].view(1, nA, 1, 1).repeat(nB, 1, nH, nW)
         else:
             tx.fill_(0.5)
             ty.fill_(0.5)
@@ -142,10 +139,10 @@ class RegionLoss(nn.Module):
 
         with torch.no_grad():
             pred_boxes = output.new_zeros((4, nB * nA * nH * nW))
-            grid_x = torch.linspace(0, nW - 1, nW).repeat(nH, 1).repeat(nB * nA, 1, 1).view(nB * nA * nH * nW).cuda()
-            grid_y = torch.linspace(0, nH - 1, nH).repeat(nW, 1).t().repeat(nB * nA, 1, 1).view(nB * nA * nH * nW).cuda()
-            anchor_w = torch.Tensor(self.anchors).view(nA, self.anchor_step).index_select(1, torch.LongTensor([0])).cuda()
-            anchor_h = torch.Tensor(self.anchors).view(nA, self.anchor_step).index_select(1, torch.LongTensor([1])).cuda()
+            grid_x = output.new_tensor(torch.linspace(0, nW - 1, nW).repeat(nH, 1).repeat(nB * nA, 1, 1).view(nB * nA * nH * nW))
+            grid_y = output.new_tensor(torch.linspace(0, nH - 1, nH).repeat(nW, 1).t().repeat(nB * nA, 1, 1).view(nB * nA * nH * nW))
+            anchor_w = output.new_tensor(torch.Tensor(self.anchors).view(nA, self.anchor_step).index_select(1, torch.LongTensor([0])))
+            anchor_h = output.new_tensor(torch.Tensor(self.anchors).view(nA, self.anchor_step).index_select(1, torch.LongTensor([1])))
             anchor_w = anchor_w.repeat(nB, 1).repeat(1, 1, nH * nW).view(nB * nA * nH * nW)
             anchor_h = anchor_h.repeat(nB, 1).repeat(1, 1, nH * nW).view(nB * nA * nH * nW)
             pred_boxes[0] = x.detach().view(grid_x.size()) + grid_x
@@ -172,16 +169,16 @@ class RegionLoss(nn.Module):
         tcls = tcls.view(-1)[cls_mask.view(-1)].long().cuda()
 
         coord_mask = coord_mask.cuda()
-        conf_mask = conf_mask.cuda().sqrt()
+        conf_mask = conf_mask.sqrt().cuda()
         cls_mask = cls_mask.view(-1, 1).repeat(1, nC).cuda()
         cls = cls[cls_mask].view(-1, nC)
 
-        loss_x = self.coord_scale * nn.MSELoss(size_average=False)(x * coord_mask, tx * coord_mask) / 2.0
-        loss_y = self.coord_scale * nn.MSELoss(size_average=False)(y * coord_mask, ty * coord_mask) / 2.0
-        loss_w = self.coord_scale * nn.MSELoss(size_average=False)(w * coord_mask, tw * coord_mask) / 2.0
-        loss_h = self.coord_scale * nn.MSELoss(size_average=False)(h * coord_mask, th * coord_mask) / 2.0
-        loss_conf = nn.MSELoss(size_average=False)(conf * conf_mask, tconf * conf_mask) / 2.0
-        loss_cls = self.class_scale * nn.CrossEntropyLoss(size_average=False)(cls, tcls)
+        loss_x = self.coord_scale * F.mse_loss(x * coord_mask, tx * coord_mask, reduction='sum') / 2.0
+        loss_y = self.coord_scale * F.mse_loss(y * coord_mask, ty * coord_mask, reduction='sum') / 2.0
+        loss_w = self.coord_scale * F.mse_loss(w * coord_mask, tw * coord_mask, reduction='sum') / 2.0
+        loss_h = self.coord_scale * F.mse_loss(h * coord_mask, th * coord_mask, reduction='sum') / 2.0
+        loss_conf = F.mse_loss(conf * conf_mask, tconf * conf_mask, reduction='sum') / 2.0
+        loss_cls = self.class_scale * F.cross_entropy(cls, tcls, reduction='sum')
         loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
         print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (
             self.seen, nGT, nCorrect, nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(),

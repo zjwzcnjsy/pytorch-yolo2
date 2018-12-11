@@ -49,8 +49,7 @@ def valid(datacfg, cfgfile, weightfile, outfile):
     nms_thresh = 0.45
     for batch_idx, (data, target) in enumerate(valid_loader):
         data = data.cuda()
-        data = Variable(data, volatile=True)
-        output = m(data).data
+        output = m(data)
         batch_boxes = get_region_boxes(output, conf_thresh, m.num_classes, m.anchors, m.num_anchors, 0, 1)
         for i in range(output.size(0)):
             lineId = lineId + 1
@@ -66,7 +65,7 @@ def valid(datacfg, cfgfile, weightfile, outfile):
                 y2 = (box[1] + box[3] / 2.0) * height
 
                 det_conf = box[4]
-                for j in range((len(box) - 5) / 2):
+                for j in range((len(box) - 5) // 2):
                     cls_conf = box[5 + 2 * j]
                     cls_id = box[6 + 2 * j]
                     prob = det_conf * cls_conf

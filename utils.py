@@ -52,7 +52,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     area2 = w2 * h2
     carea = cw * ch
     uarea = area1 + area2 - carea
-    return carea / uarea
+    return 1.*carea / uarea
 
 
 def bbox_ious(boxes1, boxes2, x1y1x2y2=True):
@@ -127,7 +127,6 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     h = output.size(2)
     w = output.size(3)
 
-    t0 = time.time()
     all_boxes = []
     output = output.view(batch * num_anchors, 5 + num_classes, h * w).transpose(0, 1).contiguous().view(5 + num_classes,
                                                                                                         batch * num_anchors * h * w)
@@ -160,7 +159,6 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     cls_max_confs, cls_max_ids = torch.max(cls_confs, 1)
     cls_max_confs = cls_max_confs.view(-1)
     cls_max_ids = cls_max_ids.view(-1)
-    t1 = time.time()
 
     sz_hw = h * w
     sz_hwa = sz_hw * num_anchors
@@ -173,36 +171,34 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     hs = hs.cpu()
     if validation:
         cls_confs = cls_confs.view(-1, num_classes).cpu()
-    t2 = time.time()
     for b in range(batch):
         boxes = []
         for cy in range(h):
             for cx in range(w):
                 for i in range(num_anchors):
                     ind = b * sz_hwa + i * sz_hw + cy * w + cx
-                    det_conf = det_confs[ind]
+                    det_conf = det_confs[ind].item()
                     if only_objectness:
-                        conf = det_confs[ind]
+                        conf = det_confs[ind].item()
                     else:
-                        conf = det_confs[ind] * cls_max_confs[ind]
+                        conf = det_confs[ind].item() * cls_max_confs[ind].item()
 
                     if conf > conf_thresh:
-                        bcx = xs[ind]
-                        bcy = ys[ind]
-                        bw = ws[ind]
-                        bh = hs[ind]
-                        cls_max_conf = cls_max_confs[ind]
-                        cls_max_id = cls_max_ids[ind]
+                        bcx = xs[ind].item()
+                        bcy = ys[ind].item()
+                        bw = ws[ind].item()
+                        bh = hs[ind].item()
+                        cls_max_conf = cls_max_confs[ind].item()
+                        cls_max_id = cls_max_ids[ind].item()
                         box = [bcx / w, bcy / h, bw / w, bh / h, det_conf, cls_max_conf, cls_max_id]
                         if (not only_objectness) and validation:
                             for c in range(num_classes):
-                                tmp_conf = cls_confs[ind][c]
-                                if c != cls_max_id and det_confs[ind] * tmp_conf > conf_thresh:
+                                tmp_conf = cls_confs[ind][c].item()
+                                if c != cls_max_id and det_confs[ind].item() * tmp_conf > conf_thresh:
                                     box.append(tmp_conf)
                                     box.append(c)
                         boxes.append(box)
         all_boxes.append(boxes)
-    t3 = time.time()
     return all_boxes
 
 
@@ -295,7 +291,7 @@ def read_truths(lab_path):
         return np.array([])
     if os.path.getsize(lab_path):
         truths = np.loadtxt(lab_path)
-        truths = truths.reshape(truths.size / 5, 5)  # to avoid single truth problem
+        truths = truths.reshape(int(truths.size/5), 5)  # to avoid single truth problem
         return truths
     else:
         return np.array([])
@@ -386,7 +382,7 @@ def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
 def read_data_cfg(datacfg):
     options = dict()
     options['gpus'] = '0,1,2,3'
-    options['num_workers'] = '10'
+    options['num_workers'] = '16'
     with open(datacfg, 'r') as fp:
         lines = fp.readlines()
 
