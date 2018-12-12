@@ -3,6 +3,7 @@ import os
 import time
 import math
 import torch
+import torch.nn.functional as F
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from torch.autograd import Variable
@@ -155,7 +156,7 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
 
     det_confs = torch.sigmoid(output[4])
 
-    cls_confs = torch.nn.Softmax()(output[5:5 + num_classes].transpose(0, 1))
+    cls_confs = F.softmax(output[5:5 + num_classes].transpose(0, 1))
     cls_max_confs, cls_max_ids = torch.max(cls_confs, 1)
     cls_max_confs = cls_max_confs.view(-1)
     cls_max_ids = cls_max_ids.view(-1)
@@ -382,7 +383,7 @@ def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
 def read_data_cfg(datacfg):
     options = dict()
     options['gpus'] = '0,1,2,3'
-    options['num_workers'] = '16'
+    options['num_workers'] = '32'
     with open(datacfg, 'r') as fp:
         lines = fp.readlines()
 

@@ -36,7 +36,7 @@ def parse_cfg(cfgfile):
 
 
 def print_cfg(blocks):
-    print('layer     filters    size              input                output');
+    print('layer     filters    size              input                output')
     prev_width = 416
     prev_height = 416
     prev_filters = 3
@@ -161,9 +161,9 @@ def print_cfg(blocks):
 def load_conv(buf, start, conv_model):
     num_w = conv_model.weight.numel()
     num_b = conv_model.bias.numel()
-    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(conv_model.bias.size()));
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(conv_model.bias.size()))
     start = start + num_b
-    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]).view(conv_model.weight.size()));
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]).view(conv_model.weight.size()))
     start = start + num_w
     return start
 
@@ -180,15 +180,15 @@ def save_conv(fp, conv_model):
 def load_conv_bn(buf, start, conv_model, bn_model):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
-    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.bias.size()));
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.bias.size()))
     start = start + num_b
-    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.weight.size()));
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.weight.size()))
     start = start + num_b
-    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.running_mean.size()));
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.running_mean.size()))
     start = start + num_b
-    bn_model.running_var.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.running_var.size()));
+    bn_model.running_var.copy_(torch.from_numpy(buf[start:start + num_b]).view(bn_model.running_var.size()))
     start = start + num_b
-    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]).view(conv_model.weight.size()));
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]).view(conv_model.weight.size()))
     start = start + num_w
     return start
 
@@ -211,9 +211,9 @@ def save_conv_bn(fp, conv_model, bn_model):
 def load_fc(buf, start, fc_model):
     num_w = fc_model.weight.numel()
     num_b = fc_model.bias.numel()
-    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]));
+    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]))
     start = start + num_b
-    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]));
+    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]))
     start = start + num_w
     return start
 

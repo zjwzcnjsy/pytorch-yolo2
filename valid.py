@@ -1,13 +1,16 @@
 from darknet import Darknet
 import dataset
 import torch
-from torch.autograd import Variable
+import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from utils import *
 import os
 
 
 def valid(datacfg, cfgfile, weightfile, outfile):
+    cudnn.enabled = True
+    cudnn.benchmark = True
+
     options = read_data_cfg(datacfg)
     valid_images = options['valid']
     name_list = options['names']
@@ -23,16 +26,16 @@ def valid(datacfg, cfgfile, weightfile, outfile):
     m.load_weights(weightfile)
     m.cuda()
     m.eval()
-
+    print('shape:', m.width, 'x', m.height)
     valid_dataset = dataset.listDataset(valid_images, shape=(m.width, m.height),
                                         shuffle=False,
                                         transform=transforms.Compose([
                                             transforms.ToTensor(),
                                         ]))
-    valid_batchsize = 2
+    valid_batchsize = 20
     assert (valid_batchsize > 1)
 
-    kwargs = {'num_workers': 4, 'pin_memory': True}
+    kwargs = {'num_workers': 16, 'pin_memory': True}
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=valid_batchsize, shuffle=False, **kwargs)
 

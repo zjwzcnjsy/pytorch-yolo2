@@ -1,6 +1,7 @@
 from __future__ import print_function
 import sys
 import argparse
+import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torchvision import transforms
 import dataset
@@ -90,6 +91,7 @@ if __name__ == '__main__':
 
     model = Darknet(cfgfile)
     region_loss = model.loss
+    model.loss = None
 
     model.load_weights(weightfile)
     model.print_network()
@@ -111,6 +113,8 @@ if __name__ == '__main__':
         batch_size=batch_size, shuffle=False, **kwargs)
 
     if use_cuda:
+        cudnn.enabled = True
+        cudnn.benchmark = True
         if ngpus > 1:
             model = torch.nn.DataParallel(model).cuda()
         else:

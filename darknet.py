@@ -68,8 +68,7 @@ class Darknet(nn.Module):
     def __init__(self, cfgfile):
         super(Darknet, self).__init__()
         self.blocks = parse_cfg(cfgfile)
-        self.models = self.create_network(self.blocks)  # merge conv, bn,leaky
-        self.loss = self.models[len(self.models) - 1]
+        self.models, self.loss = self.create_network(self.blocks)  # merge conv, bn,leaky
 
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
@@ -89,13 +88,10 @@ class Darknet(nn.Module):
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
-            # if ind > 0:
-            #    return x
 
             if block['type'] == 'net':
                 continue
-            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block[
-                'type'] == 'avgpool' or block['type'] == 'softmax' or block['type'] == 'connected':
+            elif block['type'] in ('convolutional', 'maxpool', 'reorg', 'avgpool', 'softmax', 'connected'):
                 x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
@@ -134,6 +130,7 @@ class Darknet(nn.Module):
 
     def create_network(self, blocks):
         models = nn.ModuleList()
+        loss = None
 
         prev_filters = 3
         out_filters = []
@@ -241,11 +238,10 @@ class Darknet(nn.Module):
                 loss.class_scale = float(block['class_scale'])
                 loss.coord_scale = float(block['coord_scale'])
                 out_filters.append(prev_filters)
-                models.append(loss)
             else:
                 print('unknown type %s' % (block['type']))
 
-        return models
+        return models, loss
 
     def load_weights(self, weightfile):
         fp = open(weightfile, 'rb')
