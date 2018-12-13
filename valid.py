@@ -28,23 +28,20 @@ def valid(datacfg, cfgfile, weightfile, outfile):
     m.eval()
     print('shape:', m.width, 'x', m.height)
     valid_dataset = dataset.listDataset(valid_images, shape=(m.width, m.height),
-                                        shuffle=False,
-                                        transform=transforms.Compose([
-                                            transforms.ToTensor(),
-                                        ]))
-    valid_batchsize = 20
+                                        shuffle=False)
+    valid_batchsize = 2
     assert (valid_batchsize > 1)
 
     kwargs = {'num_workers': 16, 'pin_memory': True}
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=valid_batchsize, shuffle=False, **kwargs)
 
-    fps = [0] * m.num_classes
+    fps = []
     if not os.path.exists('results'):
         os.mkdir('results')
     for i in range(m.num_classes):
         buf = '%s/%s%s.txt' % (prefix, outfile, names[i])
-        fps[i] = open(buf, 'w')
+        fps.append(open(buf, 'w'))
 
     lineId = -1
 
@@ -58,7 +55,7 @@ def valid(datacfg, cfgfile, weightfile, outfile):
             lineId = lineId + 1
             fileId = os.path.basename(valid_files[lineId]).split('.')[0]
             width, height = get_image_size(valid_files[lineId])
-            print(valid_files[lineId])
+            print('[{}/{}]: '.format(batch_idx*output.size(0)+i, len(valid_loader.dataset)), valid_files[lineId])
             boxes = batch_boxes[i]
             boxes = nms(boxes, nms_thresh)
             for box in boxes:

@@ -106,10 +106,7 @@ if __name__ == '__main__':
     kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
     test_loader = torch.utils.data.DataLoader(
         dataset.listDataset(testlist, shape=(init_width, init_height),
-                            shuffle=False,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                            ]), train=False),
+                            shuffle=False, train=False),
         batch_size=batch_size, shuffle=False, **kwargs)
 
     if use_cuda:
@@ -140,9 +137,6 @@ if __name__ == '__main__':
         train_loader = torch.utils.data.DataLoader(
             dataset.listDataset(trainlist, shape=(init_width, init_height),
                                 shuffle=True,
-                                transform=transforms.Compose([
-                                    transforms.ToTensor(),
-                                ]),
                                 train=True,
                                 seen=cur_model.seen,
                                 batch_size=batch_size,

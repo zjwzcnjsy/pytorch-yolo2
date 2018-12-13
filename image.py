@@ -4,6 +4,7 @@ import random
 import os
 from PIL import Image
 import numpy as np
+import cv2
 
 
 def scale_image_channel(im, c, v):
@@ -14,30 +15,24 @@ def scale_image_channel(im, c, v):
 
 
 def distort_image(im, hue, sat, val):
-    im = im.convert('HSV')
-    cs = list(im.split())
-    cs[1] = cs[1].point(lambda i: i * sat)
-    cs[2] = cs[2].point(lambda i: i * val)
+    np_im = np.asarray(im).astype(np.float32)
+    np_im = cv2.cvtColor(np_im, cv2.COLOR_RGB2HSV)
+    np_im[:, :, 1] *= sat
+    np_im[:, :, 2] *= val
 
-    def change_hue(x):
-        x += hue * 255
-        if x > 255:
-            x -= 255
-        if x < 0:
-            x += 255
-        return x
+    np_im[:, :, 0] += hue * 255
+    np_im[:, :, 0][np_im[:, :, 0] > 255] -= 255
+    np_im[:, :, 0][np_im[:, :, 0] < 0] += 255
 
-    cs[0] = cs[0].point(change_hue)
-    im = Image.merge(im.mode, tuple(cs))
-
-    im = im.convert('RGB')
-    # constrain_image(im)
+    im = cv2.cvtColor(np_im, cv2.COLOR_HSV2RGB)
+    im[im > 255] = 255
+    im[im < 0] = 0
     return im
 
 
 def rand_scale(s):
     scale = random.uniform(1, s)
-    if (random.randint(1, 10000) % 2):
+    if random.random() < 0.5:
         return scale
     return 1. / scale
 
@@ -68,13 +63,13 @@ def data_augmentation(img, shape, jitter, hue, saturation, exposure):
     sx = float(swidth) / ow
     sy = float(sheight) / oh
 
-    flip = random.randint(1, 10000) % 2
+    flip = (random.random() < 0.5)
     cropped = img.crop((pleft, ptop, pleft + swidth - 1, ptop + sheight - 1))
 
     dx = (float(pleft) / ow) / sx
     dy = (float(ptop) / oh) / sy
 
-    sized = cropped.resize(shape)
+    sized = cropped.resize(shape, Image.BILINEAR)
 
     if flip:
         sized = sized.transpose(Image.FLIP_LEFT_RIGHT)
@@ -129,5 +124,5 @@ def load_data_detection(imgpath, shape, jitter, hue, saturation, exposure):
     ## data augmentation
     img = Image.open(imgpath).convert('RGB')
     img, flip, dx, dy, sx, sy = data_augmentation(img, shape, jitter, hue, saturation, exposure)
-    label = fill_truth_detection(labpath, img.width, img.height, flip, dx, dy, 1. / sx, 1. / sy)
+    label = fill_truth_detection(labpath, img.shape[1], img.shape[0], flip, dx, dy, 1. / sx, 1. / sy)
     return img, label

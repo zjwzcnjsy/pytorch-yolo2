@@ -55,7 +55,7 @@ class listDataset(Dataset):
                 self.shape = (width, width)
 
         if self.train:
-            jitter = 0.2
+            jitter = 0.3
             hue = 0.1
             saturation = 1.5
             exposure = 1.5
@@ -65,7 +65,7 @@ class listDataset(Dataset):
         else:
             img = Image.open(imgpath).convert('RGB')
             if self.shape:
-                img = img.resize(self.shape)
+                img = img.resize(self.shape, Image.BILINEAR)
 
             labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg',
                                                                                                   '.txt').replace(
@@ -86,6 +86,8 @@ class listDataset(Dataset):
             elif tsz > 0:
                 label[0:tsz] = tmp
 
+            img = np.asarray(img).astype(np.float32)
+        img = img.transpose((2, 0, 1)) / 255
         if self.transform is not None:
             img = self.transform(img)
 
