@@ -21,7 +21,7 @@ def convert(size, box):
     w = w * dw
     y = y * dh
     h = h * dh
-    return (x, y, w, h)
+    return x, y, w, h
 
 
 def convert_annotation(year, image_id):
