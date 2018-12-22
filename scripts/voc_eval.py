@@ -261,6 +261,5 @@ def _do_python_eval(res_prefix, output_dir='output'):
 
 
 if __name__ == '__main__':
-    # res_prefix = '/data/hongji/darknet/project/voc/results/comp4_det_test_'
     res_prefix = sys.argv[1]
     _do_python_eval(res_prefix, output_dir='output')

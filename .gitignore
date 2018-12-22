@@ -6,3 +6,5 @@
 *.o
 *.so
 backup/
+.idea
+**/__pycache__/

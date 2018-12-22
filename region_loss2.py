@@ -7,7 +7,8 @@ from torch.autograd import Variable
 from utils import *
 
 
-def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW, noobject_scale, object_scale,
+def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
+                  noobject_scale, object_scale, coord_scale, class_scale,
                   sil_thresh, seen):
     nB = target.size(0)
     nA = num_anchors
@@ -37,7 +38,6 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             gh = target[b][t * 5 + 4] * nH
             cur_gt_boxes = torch.tensor([gx, gy, gw, gh]).repeat(nAnchors, 1).t()
             cur_ious = torch.max(cur_ious, bbox_ious(cur_pred_boxes, cur_gt_boxes, x1y1x2y2=False))
-        # conf_mask[b][cur_ious > sil_thresh] = 0
         temp_thresh = cur_ious > sil_thresh
         conf_mask[b][temp_thresh.view(conf_mask[b].shape)] = 0
     if seen < 12800:
@@ -49,7 +49,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             ty.fill_(0.5)
         tw.zero_()
         th.zero_()
-        coord_mask.fill_(1)
+        coord_mask.fill_(.01)
 
     nGT = 0
     nCorrect = 0
@@ -87,15 +87,18 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
                     best_iou = iou
                     best_n = n
                     min_dist = dist
+            if best_n == -1:
+                continue
 
             gt_box = [gx, gy, gw, gh]
             pred_box = pred_boxes[b * nAnchors + best_n * nPixels + gj * nW + gi]
 
-            coord_mask[b][best_n][gj][gi] = 1
-            cls_mask[b][best_n][gj][gi] = 1
+            coord_mask[b][best_n][gj][gi] = coord_scale * (2 - target[b][t * 5 + 3]*target[b][t * 5 + 4])
+            cls_mask[b][best_n][gj][gi] = class_scale
             conf_mask[b][best_n][gj][gi] = object_scale
-            tx[b][best_n][gj][gi] = target[b][t * 5 + 1] * nW - gi
-            ty[b][best_n][gj][gi] = target[b][t * 5 + 2] * nH - gj
+
+            tx[b][best_n][gj][gi] = gx - gi
+            ty[b][best_n][gj][gi] = gy - gj
             tw[b][best_n][gj][gi] = math.log(gw / anchors[anchor_step * best_n])
             th[b][best_n][gj][gi] = math.log(gh / anchors[anchor_step * best_n + 1])
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)  # best_iou
@@ -135,7 +138,7 @@ class RegionLoss(nn.Module):
         w = output[:, :, 2, :, :].view(nB, nA, nH, nW).contiguous()
         h = output[:, :, 3, :, :].view(nB, nA, nH, nW).contiguous()
         conf = F.sigmoid(output[:, :, 4, :, :].view(nB, nA, nH, nW).contiguous())
-        cls = output[:, :, 5:5 + nC, :, :].view(nB * nA, nC, nH * nW).transpose(1, 2).contiguous().view(nB * nA * nH * nW, nC)
+        cls = F.log_softmax(output[:, :, 5:5 + nC, :, :], dim=2).view(nB * nA, nC, nH * nW).transpose(1, 2).contiguous().view(nB * nA * nH * nW, nC)
 
         with torch.no_grad():
             pred_boxes = output.new_zeros((4, nB * nA * nH * nW))
@@ -156,9 +159,11 @@ class RegionLoss(nn.Module):
                                                                                                         self.anchors, nA, nC, nH, nW,
                                                                                                         self.noobject_scale,
                                                                                                         self.object_scale,
+                                                                                                        self.coord_scale,
+                                                                                                        self.class_scale,
                                                                                                         self.thresh,
                                                                                                         self.seen)
-        cls_mask = (cls_mask == 1)
+        cls_mask2 = (cls_mask > 0)
         nProposals = int((conf > 0.25).sum().item())
 
         tx = tx.cuda()
@@ -166,19 +171,21 @@ class RegionLoss(nn.Module):
         tw = tw.cuda()
         th = th.cuda()
         tconf = tconf.cuda()
-        tcls = tcls.view(-1)[cls_mask.view(-1)].long().cuda()
+        tcls = tcls.view(-1)[cls_mask2.view(-1)].long().cuda()
 
         coord_mask = coord_mask.cuda()
-        conf_mask = conf_mask.sqrt().cuda()
-        cls_mask = cls_mask.view(-1, 1).repeat(1, nC).cuda()
-        cls = cls[cls_mask].view(-1, nC)
+        conf_mask = conf_mask.cuda()
+        cls_mask2 = cls_mask2.view(-1, 1).repeat(1, nC).cuda()
+        cls = cls[cls_mask2].view(-1, nC)
+        cls_mask2 = cls_mask[cls_mask > 0].view(-1).cuda()
 
-        loss_x = self.coord_scale * F.mse_loss(x * coord_mask, tx * coord_mask, reduction='sum') / 2.0
-        loss_y = self.coord_scale * F.mse_loss(y * coord_mask, ty * coord_mask, reduction='sum') / 2.0
-        loss_w = self.coord_scale * F.mse_loss(w * coord_mask, tw * coord_mask, reduction='sum') / 2.0
-        loss_h = self.coord_scale * F.mse_loss(h * coord_mask, th * coord_mask, reduction='sum') / 2.0
-        loss_conf = F.mse_loss(conf * conf_mask, tconf * conf_mask, reduction='sum') / 2.0
-        loss_cls = self.class_scale * F.cross_entropy(cls, tcls, reduction='sum')
+        # TODO: 从代码来看，mask应该放在代价函数的外部，而不是里面，不然代价之间的权重的比例变了
+        loss_x = (F.mse_loss(x, tx, reduction='none') * coord_mask).sum()
+        loss_y = (F.mse_loss(y, ty, reduction='none') * coord_mask).sum()
+        loss_w = (F.mse_loss(w, tw, reduction='none') * coord_mask).sum()
+        loss_h = (F.mse_loss(h, th, reduction='none') * coord_mask).sum()
+        loss_conf = (F.mse_loss(conf, tconf, reduction='none') * conf_mask).sum()
+        loss_cls = (F.nll_loss(cls, tcls, reduction='none')*cls_mask2).sum()
         loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
         print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (
             self.seen, nGT, nCorrect, nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(),
