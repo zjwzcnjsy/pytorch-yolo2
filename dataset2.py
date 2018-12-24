@@ -67,28 +67,33 @@ class ListDataset(Dataset):
             assert image is not None
             origin_height, origin_width = image.shape[:2]
 
-            sized = np.full((out_h, out_w, image.shape[2]), 0.5 * 255, dtype=np.float32)
-
-            dw = jitter * origin_width
-            dh = jitter * origin_height
-
-            new_ar = (origin_width + random.uniform(-dw, dw)) / (origin_height + random.uniform(-dh, dh))
-
-            new_w = 0
-            new_h = 0
-
-            if new_ar < 1:
-                new_h = out_h
-                new_w = int(new_h * new_ar)
-            else:
+            if float(out_w) / origin_width < float(out_h) / origin_height:
                 new_w = out_w
-                new_h = int(new_w / new_ar)
+                new_h = int((origin_height * out_w) / origin_width)
+            else:
+                new_h = out_h
+                new_w = int((origin_width * out_h) / origin_height)
 
-            dx = int(random.uniform(0, out_w - new_w))
-            dy = int(random.uniform(0, out_h - new_h))
+            resized = cv2.resize(image, (new_w, new_h), cv2.INTER_LINEAR)
 
-            sized[dy:dy + new_h, dx:dx + new_w, :] = cv2.resize(image, (new_w, new_h), cv2.INTER_LINEAR).astype(
-                np.float32)
+            dw = int(jitter * resized.shape[1])
+            dh = int(jitter * resized.shape[0])
+
+            sized = np.full((out_h + 2 * dh, out_w + 2 * dw, image.shape[2]), 0.5 * 255, dtype=np.float32)
+            dx1 = int((out_w - new_w) / 2.)
+            dy1 = int((out_h - new_h) / 2.)
+            sized[dy1 + dh:dy1 + dh + new_h, dx1 + dw:dx1 + dw + new_w, :] = resized.astype(np.float32)
+
+            dx = random.randint(0, 2*dw)
+            dy = random.randint(0, 2*dh)
+
+            sized = sized[dy:dy + out_h, dx:dx + out_w, :]
+
+            dx = (dw - dx + dx1) / out_w
+            dy = (dh - dy + dy1) / out_h
+
+            sx = new_w / out_w
+            sy = new_h / out_h
 
             img = random_distort_image(sized, hue, saturation, exposure)
 
@@ -103,30 +108,12 @@ class ListDataset(Dataset):
                 .replace('.jpg', '.txt') \
                 .replace('.png', '.txt')
 
-            sx = out_w / new_w
-            sy = out_h / new_h
-            label = fill_truth_detection2(labpath, img.shape[1], img.shape[0], flip, -dx / out_w, -dy / out_h, 1. / sx,
-                                          1. / sy)
+            label = fill_truth_detection2(labpath, img.shape[1], img.shape[0], flip, -dx, -dy, sx, sy)
             label = torch.from_numpy(label)
         else:
             image = cv2.imread(imgpath)
             assert image is not None
-            new_w = image.shape[1]
-            new_h = image.shape[0]
-
-            if float(out_w) / image.shape[1] < float(out_h) / image.shape[0]:
-                new_w = out_w
-                new_h = int((image.shape[0] * out_w) / image.shape[1])
-            else:
-                new_h = out_h
-                new_w = int((image.shape[1] * out_h) / image.shape[0])
-
-            resized = cv2.resize(image, (new_w, new_h), cv2.INTER_LINEAR)
-
-            sized = np.full((out_h, out_w, image.shape[2]), 0.5 * 255, dtype=np.float32)
-            dx = int((out_w - new_w) / 2.)
-            dy = int((out_h - new_h) / 2.)
-            sized[dy:dy + new_h, dx:dx + new_w, :] = resized.astype(np.float32)
+            sized, new_w, new_h, dx, dy = letterbox_image(image, out_w, out_h, return_dxdy=True)
 
             labpath = imgpath.replace('images', 'labels') \
                 .replace('JPEGImages', 'labels') \

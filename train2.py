@@ -147,7 +147,7 @@ if __name__ == '__main__':
     init_height = model.height
     init_epoch = int(model.seen / nsamples)
 
-    kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
+    kwargs = {'num_workers': num_workers, 'pin_memory': False} if use_cuda else {}
     test_loader = torch.utils.data.DataLoader(
         dataset2.ListDataset(testlist, shape=(init_width, init_height),
                              shuffle=False, train=False),

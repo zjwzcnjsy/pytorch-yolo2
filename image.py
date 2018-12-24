@@ -232,11 +232,11 @@ def load_data_detection(imgpath, shape, jitter, hue, saturation, exposure):
     return img, label
 
 
-def letterbox_image(image, w, h):
+def letterbox_image(image, w, h, return_dxdy=False):
     assert len(image.shape) == 3
     assert image.shape[-1] == 3
-    new_w = image.shape[1]
-    new_h = image.shape[0]
+    new_w = 0
+    new_h = 0
 
     if float(w) / image.shape[1] < float(h) / image.shape[0]:
         new_w = w
@@ -250,4 +250,6 @@ def letterbox_image(image, w, h):
     dx = int((w - new_w) / 2.)
     dy = int((h - new_h) / 2.)
     boxed[dy:dy+new_h, dx:dx+new_w, :] = resized.astype(np.float32)
+    if return_dxdy:
+        return boxed, new_w, new_h, dx, dy
     return boxed
