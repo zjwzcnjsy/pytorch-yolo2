@@ -109,7 +109,7 @@ if __name__ == '__main__':
     max_epochs = int(1. * max_batches * batch_size / nsamples + 1)
     use_cuda = True
     eps = 1e-5
-    save_interval = 10  # epoches
+    save_interval = 5  # epoches
     dot_interval = 70  # batches
 
     # Test parameters
@@ -242,7 +242,7 @@ if __name__ == '__main__':
         print('')
         t1 = time.time()
         logging('training with %f samples/s' % (len(train_loader.dataset) / (t1 - t0)))
-        if (epoch + 1) % save_interval == 0:
+        if (epoch + 1) % save_interval == 0 or (epoch + 1) == max_epochs:
             logging('save weights to %s/%06d.weights' % (backupdir, epoch + 1))
             cur_model.seen = (epoch + 1) * len(train_loader.dataset)
             cur_model.save_weights('%s/%06d.weights' % (backupdir, epoch + 1))
