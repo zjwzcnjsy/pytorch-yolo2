@@ -110,6 +110,26 @@ def nms(boxes, nms_thresh):
     return out_boxes
 
 
+def nms_class(boxes, nms_thresh, num_class):
+    if len(boxes) == 0:
+        return boxes
+    for c in range(num_class):
+        det_confs = torch.zeros(len(boxes))
+        for i in range(len(boxes)):
+            det_confs[i] = 1 - boxes[i][5 + c]
+
+        _, sortIds = torch.sort(det_confs)
+        for i in range(len(boxes)):
+            box_i = boxes[sortIds[i]]
+            if box_i[5 + c] > 0:
+                for j in range(i + 1, len(boxes)):
+                    box_j = boxes[sortIds[j]]
+                    if bbox_iou(box_i, box_j, x1y1x2y2=False) > nms_thresh:
+                        # print(box_i, box_j, bbox_iou(box_i, box_j, x1y1x2y2=False))
+                        box_j[5 + c] = 0
+    return boxes
+
+
 def convert2cpu(gpu_matrix):
     return torch.FloatTensor(gpu_matrix.size()).copy_(gpu_matrix)
 
@@ -255,8 +275,6 @@ def get_region_boxes2(output,
     sz_hw = h * w
     sz_hwa = sz_hw * num_anchors
     det_confs = det_confs.cpu()
-    cls_max_confs = cls_max_confs.cpu()
-    cls_max_ids = cls_max_ids.cpu()
     xs = xs.cpu()
     ys = ys.cpu()
     ws = ws.cpu()
@@ -295,9 +313,9 @@ def get_region_boxes2(output,
                             for c in range(num_classes):
                                 tmp_conf = cls_confs[ind][c].item()
                                 prob = det_conf * tmp_conf
-                                if prob > conf_thresh:
-                                    box.append(tmp_conf)
-                                    box.append(c)
+                                if prob < conf_thresh:
+                                    prob = 0
+                                box.append(prob)
                         boxes.append(box)
         all_boxes.append(boxes)
     return all_boxes

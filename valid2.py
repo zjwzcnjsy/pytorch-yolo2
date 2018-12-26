@@ -75,7 +75,7 @@ def valid(datacfg, cfgfile, weightfile, outfile):
         height, width = image.shape[:2]
         print('[{}/{}]: '.format(batch_idx, len(valid_files)), valid_file, ' ', len(batch_boxes[0]))
         boxes = batch_boxes[0]
-        boxes = nms(boxes, nms_thresh)
+        boxes = nms_class(boxes, nms_thresh, m.num_classes)
         for box in boxes:
             x1 = (box[0] - box[2] / 2.0) * width
             y1 = (box[1] - box[3] / 2.0) * height
@@ -86,17 +86,15 @@ def valid(datacfg, cfgfile, weightfile, outfile):
                 x1 = 0
             if y1 < 0:
                 y1 = 0
-            if x2 > width:
-                x2 = width
-            if y2 > height:
-                y2 = height
+            if x2 >= width:
+                x2 = width - 1
+            if y2 >= height:
+                y2 = height - 1
 
-            det_conf = box[4]
-            for j in range((len(box) - 5) // 2):
-                cls_conf = box[5 + 2 * j]
-                cls_id = box[6 + 2 * j]
-                prob = det_conf * cls_conf
-                fps[cls_id].write('%s %f %f %f %f %f\n' % (fileId, prob, x1, y1, x2, y2))
+            for j in range(m.num_classes):
+                prob = box[5 + j]
+                if prob >= conf_thresh:
+                    fps[j].write('%s %f %f %f %f %f\n' % (fileId, prob, x1, y1, x2, y2))
 
     for i in range(m.num_classes):
         fps[i].close()
