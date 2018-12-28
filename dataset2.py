@@ -9,13 +9,19 @@ from torch.utils.data import Dataset
 from PIL import Image
 from utils import read_truths_args, read_truths
 from image import *
-from utils import image_to_tensor
+
+
+def image_to_tensor(image):
+    assert isinstance(image, np.ndarray)
+    assert image.dtype == np.float32
+    image = image[:, :, ::-1].transpose((2, 0, 1)).copy()
+    image = torch.from_numpy(image).float().div(255.0).unsqueeze(0)
+    return image
 
 
 class ListDataset(Dataset):
 
-    def __init__(self, root, shape=None, shuffle=True, transform=None, target_transform=None, train=False, seen=0,
-                 batch_size=64, num_workers=4):
+    def __init__(self, root, shape=(608, 608), shuffle=True, train=False):
         with open(root, 'r') as file:
             self.lines = file.readlines()
 
@@ -23,13 +29,8 @@ class ListDataset(Dataset):
             random.shuffle(self.lines)
 
         self.nSamples = len(self.lines)
-        self.transform = transform
-        self.target_transform = target_transform
         self.train = train
         self.shape = shape
-        self.seen = seen
-        self.batch_size = batch_size
-        self.num_workers = num_workers
 
     def __len__(self):
         return self.nSamples
@@ -37,23 +38,6 @@ class ListDataset(Dataset):
     def __getitem__(self, index):
         assert index <= len(self), 'index range error'
         imgpath = self.lines[index].rstrip()
-
-        if self.train and index % self.batch_size == 0:
-            if self.seen < 4000 * self.batch_size:
-                width = 13 * 32
-                self.shape = (width, width)
-            elif self.seen < 8000 * self.batch_size:
-                width = (random.randint(0, 3) + 13) * 32
-                self.shape = (width, width)
-            elif self.seen < 12000 * self.batch_size:
-                width = (random.randint(0, 5) + 12) * 32
-                self.shape = (width, width)
-            elif self.seen < 16000 * self.batch_size:
-                width = (random.randint(0, 7) + 11) * 32
-                self.shape = (width, width)
-            else:  # self.seen < 20000*64:
-                width = (random.randint(0, 9) + 10) * 32
-                self.shape = (width, width)
 
         out_w, out_h = self.shape
 
@@ -67,33 +51,23 @@ class ListDataset(Dataset):
             assert image is not None
             origin_height, origin_width = image.shape[:2]
 
-            if float(out_w) / origin_width < float(out_h) / origin_height:
-                new_w = out_w
-                new_h = int((origin_height * out_w) / origin_width)
-            else:
-                new_h = out_h
-                new_w = int((origin_width * out_h) / origin_height)
+            dw = origin_width * jitter
+            dh = origin_height * jitter
 
-            resized = cv2.resize(image, (new_w, new_h), cv2.INTER_LINEAR)
+            pleft = int(random.uniform(-dw, dw))
+            pright = int(random.uniform(-dw, dw))
+            ptop = int(random.uniform(-dh, dh))
+            pbot = int(random.uniform(-dh, dh))
 
-            dw = int(jitter * resized.shape[1])
-            dh = int(jitter * resized.shape[0])
+            swidth = origin_width - pleft - pright
+            sheight = origin_height - ptop - pbot
 
-            sized = np.full((out_h + 2 * dh, out_w + 2 * dw, image.shape[2]), 0.5 * 255, dtype=np.float32)
-            dx1 = int((out_w - new_w) / 2.)
-            dy1 = int((out_h - new_h) / 2.)
-            sized[dy1 + dh:dy1 + dh + new_h, dx1 + dw:dx1 + dw + new_w, :] = resized.astype(np.float32)
+            pleft2, pright2, ptop2, pbot2 = map(abs, [pleft, pright, ptop, pbot])
 
-            dx = random.randint(0, 2*dw)
-            dy = random.randint(0, 2*dh)
+            image2 = cv2.copyMakeBorder(image, ptop2, pbot2, pleft2, pright2, cv2.BORDER_REPLICATE)
+            croped = image2[ptop2+ptop:ptop2+ptop+sheight, pleft2+pleft:pleft2+pleft+swidth, :]
 
-            sized = sized[dy:dy + out_h, dx:dx + out_w, :]
-
-            dx = (dw - dx + dx1) / out_w
-            dy = (dh - dy + dy1) / out_h
-
-            sx = new_w / out_w
-            sy = new_h / out_h
+            sized, new_w, new_h, dx3, dy3 = letterbox_image(croped, out_w, out_h, return_dxdy=True)
 
             img = random_distort_image(sized, hue, saturation, exposure)
 
@@ -108,8 +82,44 @@ class ListDataset(Dataset):
                 .replace('.jpg', '.txt') \
                 .replace('.png', '.txt')
 
-            label = fill_truth_detection2(labpath, img.shape[1], img.shape[0], flip, -dx, -dy, sx, sy)
-            label = torch.from_numpy(label)
+            label = np.loadtxt(labpath)
+            if label is None:
+                label = np.full((5,), -1, dtype=np.float32)
+            else:
+                label2 = np.full((label.size//5, 5), -1, np.float32)
+                bs = np.reshape(label, (-1, 5))
+                cc = 0
+                for i in range(bs.shape[0]):
+                    x1 = bs[i][1] - bs[i][3] / 2
+                    y1 = bs[i][2] - bs[i][4] / 2
+                    x2 = bs[i][1] + bs[i][3] / 2
+                    y2 = bs[i][2] + bs[i][4] / 2
+
+                    x1 = min(swidth, max(0, x1 * origin_width - pleft))
+                    y1 = min(sheight, max(0, y1 * origin_height - ptop))
+                    x2 = min(swidth, max(0, x2 * origin_width - pleft))
+                    y2 = min(sheight, max(0, y2 * origin_height - ptop))
+
+                    x1 = (x1 / swidth * new_w + dx3) / out_w
+                    y1 = (y1 / sheight * new_h + dy3) / out_h
+                    x2 = (x2 / swidth * new_w + dx3) / out_w
+                    y2 = (y2 / sheight * new_h + dy3) / out_h
+
+                    bs[i][1] = (x1 + x2) / 2
+                    bs[i][2] = (y1 + y2) / 2
+                    bs[i][3] = (x2 - x1)
+                    bs[i][4] = (y2 - y1)
+
+                    if flip:
+                        bs[i][1] = 0.999 - bs[i][1]
+
+                    if bs[i][3] < 0.001 or bs[i][4] < 0.001:
+                        continue
+                    label2[cc] = bs[i]
+                    cc += 1
+                    if cc >= 50:
+                        break
+                label = label2[:cc].flatten()
         else:
             image = cv2.imread(imgpath)
             assert image is not None
@@ -123,23 +133,39 @@ class ListDataset(Dataset):
             tmp[:, 1:] = (tmp[:, 1:] * np.array([new_w, new_h, new_w, new_h]) + np.array([dx, dy, 0, 0])) / np.array(
                 [out_w, out_h, out_w, out_h])
 
-            tmp = tmp.flatten()
-            tsz = tmp.size
-            label = np.full((50 * 5,), -1, np.float32)
-            if tsz > 50 * 5:
-                label = tmp[0:50 * 5]
-            elif tsz > 0:
-                label[0:tsz] = tmp
-            label = torch.from_numpy(label)
-
+            label = tmp.flatten()
             image = sized
 
-        img = image_to_tensor(image / 255.)
-        if self.transform is not None:
-            img = self.transform(img)
+        return dict(image=image, label=label)
 
-        if self.target_transform is not None:
-            label = self.target_transform(label)
 
-        self.seen = self.seen + self.num_workers
-        return img, label
+class BatchDataCollate:
+    def __init__(self, sizes=(416,), processed_batches=0):
+        self.sizes = sizes
+        self.num_sizes = len(self.sizes)
+        self.processed_batches = processed_batches
+        self.cur_idx = 0
+
+    def __call__(self, batch):
+        r"""Puts each data field into a tensor with outer dimension batch size"""
+
+        error_msg = "batch must contain dicts; found {}"
+        assert isinstance(batch[0], dict), error_msg.format(type(batch[0]))
+        # print(type(batch), type(batch[0]), batch[0].keys())
+        max_label_len = 5
+        for dd in batch:
+            label = dd['label']
+            max_label_len = max(max_label_len, label.size)
+        if self.processed_batches % 10 == 0:
+            self.cur_idx = random.randint(0, self.num_sizes-1)
+        self.processed_batches += 1
+        images = [t['image'] for t in batch]
+        images = [cv2.resize(t, (self.sizes[self.cur_idx], self.sizes[self.cur_idx])) for t in images]
+        images = [image_to_tensor(t.astype(np.float32)) for t in images]
+        image_tensor = torch.cat(images, 0)
+        lables = np.full((len(batch), max_label_len), -1, dtype=np.float32)
+        for i in range(len(batch)):
+            label = batch[i]['label']
+            lables[i, :label.size] = label
+        lables = torch.from_numpy(lables)
+        return dict(image=image_tensor, label=lables)

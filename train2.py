@@ -96,6 +96,7 @@ if __name__ == '__main__':
     with open(names, mode='r') as fin:
         lines = fin.readlines()
         names = [line.strip() for line in lines if line.strip() != '']
+    sizes = [int(t.strip()) for t in data_options['sizes'].split(',')]
 
     batch_size = int(net_options['batch'])
     max_batches = int(net_options['max_batches'])
@@ -149,8 +150,9 @@ if __name__ == '__main__':
 
     kwargs = {'num_workers': num_workers, 'pin_memory': False} if use_cuda else {}
     test_loader = torch.utils.data.DataLoader(
-        dataset2.ListDataset(testlist, shape=(init_width, init_height),
+        dataset2.ListDataset(testlist, shape=(sizes[-1], sizes[-1]),
                              shuffle=False, train=False),
+        collate_fn=dataset2.BatchDataCollate(sizes=sizes),
         batch_size=batch_size, shuffle=False, **kwargs)
 
     if use_cuda:
@@ -180,12 +182,10 @@ if __name__ == '__main__':
         else:
             cur_model = model
         train_loader = torch.utils.data.DataLoader(
-            dataset2.ListDataset(trainlist, shape=(init_width, init_height),
+            dataset2.ListDataset(trainlist, shape=(sizes[-1], sizes[-1]),
                                  shuffle=True,
-                                 train=True,
-                                 seen=cur_model.seen,
-                                 batch_size=batch_size,
-                                 num_workers=num_workers),
+                                 train=True),
+            collate_fn=dataset2.BatchDataCollate(sizes=sizes, processed_batches=processed_batches),
             batch_size=batch_size, shuffle=False, **kwargs)
 
         lr = adjust_learning_rate(learning_rate, steps, scales, batch_size, optimizer, processed_batches)
@@ -193,14 +193,16 @@ if __name__ == '__main__':
         model.train()
         t1 = time.time()
         avg_time = torch.zeros(9)
-        for batch_idx, (data, target) in enumerate(train_loader):
+        for batch_idx, loaded_data in enumerate(train_loader):
+            data, target = loaded_data['image'], loaded_data['label']
             t2 = time.time()
             adjust_learning_rate(learning_rate, steps, scales, batch_size, optimizer, processed_batches)
             processed_batches = processed_batches + 1
             # if (batch_idx+1) % dot_interval == 0:
             #    sys.stdout.write('.')
-            if processed_batches % 100 == 0:
+            if batch_idx % 100 == 0:
                 vis.image(visdom_images(data, target, names), win='train')
+                print('plot images...')
 
             if use_cuda:
                 data = data.cuda()
@@ -250,7 +252,7 @@ if __name__ == '__main__':
 
     def test(epoch):
         def truths_length(truths):
-            for i in range(50):
+            for i in range(truths.size(0)):
                 if truths[i][0] == -1:
                     return i
 
@@ -267,7 +269,8 @@ if __name__ == '__main__':
         correct = 0.0
 
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(test_loader):
+            for batch_idx, loaded_data in enumerate(test_loader):
+                data, target = loaded_data['image'], loaded_data['label']
                 if use_cuda:
                     data = data.cuda()
                 output = model(data)

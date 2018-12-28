@@ -180,7 +180,7 @@ def fill_truth_detection2(labpath, w, h, flip, dx, dy, sx, sy):
     return label
 
 
-def fill_truth_detection2(labpath, w, h, flip, dx, dy, sx, sy):
+def fill_truth_detection2(labpath, w, h, flip, dx1, dy1, dx2, dy2, sx, sy):
     max_boxes = 50
     label = np.full((max_boxes, 5), -1, dtype=np.float32)
     if os.path.getsize(labpath):
@@ -195,10 +195,10 @@ def fill_truth_detection2(labpath, w, h, flip, dx, dy, sx, sy):
             x2 = bs[i][1] + bs[i][3] / 2
             y2 = bs[i][2] + bs[i][4] / 2
 
-            x1 = min(0.999, max(0, x1 * sx - dx))
-            y1 = min(0.999, max(0, y1 * sy - dy))
-            x2 = min(0.999, max(0, x2 * sx - dx))
-            y2 = min(0.999, max(0, y2 * sy - dy))
+            x1 = min(0.999, max(0, x1 * sx - dx1))
+            y1 = min(0.999, max(0, y1 * sy - dy1))
+            x2 = min(0.999, max(0, x2 * sx - dx2))
+            y2 = min(0.999, max(0, y2 * sy - dy2))
 
             bs[i][1] = (x1 + x2) / 2
             bs[i][2] = (y1 + y2) / 2
@@ -214,8 +214,9 @@ def fill_truth_detection2(labpath, w, h, flip, dx, dy, sx, sy):
             cc += 1
             if cc >= 50:
                 break
-
-    label = np.reshape(label, (-1))
+        label = label[:cc].flatten()
+    else:
+        label = None
     return label
 
 
