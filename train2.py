@@ -255,6 +255,7 @@ if __name__ == '__main__':
             for i in range(truths.size(0)):
                 if truths[i][0] == -1:
                     return i
+            return truths.size(0)
 
         model.eval()
         if ngpus > 1:
